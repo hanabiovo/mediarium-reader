@@ -1,0 +1,163 @@
+/* 灵媒正文排版（3d 排版模块）。只管 .prose 里面；外面的版式（栏宽、页边距）在 article.css。
+   规则出处见「阶段3 阅读器骨架.md」3d 部分（2026-10-20 Hana 定）。
+   可调的只有字号、行距两项（分挡，由 src/typo/settings.ts 写成变量），段距、字距都跟着它们算。 */
+
+.prose {
+  --lh: var(--prose-leading, 1.75);
+  --para: calc(var(--lh) * 0.5em);          /* 段距：约半行 */
+  font-family: var(--font-body); font-weight: 400; color: var(--ink-body);
+  font-size: var(--prose-size-m, 17px); line-height: var(--lh);
+  letter-spacing: 0.02em;
+  /* 两端对齐；英文长词按英文规则断开加连字符（英文片段由 typeset.ts 标上 lang="en"），网址这类长串必要时任意处折行 */
+  text-align: justify; text-justify: auto; overflow-wrap: break-word;
+  /* 汉字和西文、数字之间自动留约四分之一字宽；作者手打了空格的地方浏览器不再加 */
+  text-autospace: normal;
+  font-variant-numeric: lining-nums proportional-nums;
+}
+@media (min-width: 720px) { .prose { font-size: var(--prose-size-d, 18px); } }
+.prose [lang="en"] { hyphens: auto; -webkit-hyphens: auto; }
+.prose .prose-latin { text-align: left; }          /* 整段英文：左对齐 */
+.prose > :first-child { margin-top: 0; }
+
+/* 段落。首行缩进是开关（默认关，同灵犀）；开了就按书的惯例不再空行 */
+.prose p, .prose ul, .prose ol, .prose blockquote, .prose pre, .prose figure, .prose .prose-fold { margin: 0 0 var(--para); }
+:root[data-indent="on"] .prose p { text-indent: 2em; margin-bottom: 0; }
+:root[data-indent="on"] .prose p + :not(p) { margin-top: var(--para); }
+:root[data-indent="on"] .prose :is(.prose-media, .prose-caption, .prose-end-line, .prose-subhead, .prose-short, .prose-note, li p, blockquote p:first-child) { text-indent: 0; }
+
+/* 文中小标题：正文字体加粗、上方多留一段白（单档字体由浏览器描粗，Hana 看过样张接受） */
+.prose :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--ink);
+  margin: calc(var(--lh) * 1.4em) 0 calc(var(--lh) * 0.35em);
+  font-family: var(--font-body); font-weight: 700; line-height: 1.5;
+  letter-spacing: 0.04em; text-align: left; text-indent: 0;
+}
+.prose :is(h1, h2) { font-size: 1.16em; }
+.prose h3 { font-size: 1.06em; }
+.prose :is(h4, h5, h6) { font-size: 1em; }
+
+/* 强调：只加粗（噪音最小）；汉字没有斜体，不硬压斜。英文片段保留英文的斜体习惯 */
+.prose :is(strong, b) { font-weight: 700; }
+.prose :is(em, i, cite) { font-style: normal; font-weight: 700; }
+.prose :is(em, i, cite) [lang="en"] { font-style: italic; font-weight: 400; }
+
+/* 引用：左侧一条细竖线（线条的例外之一） */
+.prose blockquote { padding-left: 1.1em; border-left: 1px solid var(--ink-ghost); color: var(--ink-mid); }
+.prose blockquote > :last-child { margin-bottom: 0; }
+
+/* 列表：强调色小方块做圆点，数字用等宽 */
+.prose :is(ul, ol) { padding-left: 1.5em; }
+.prose ul { list-style: none; }
+.prose li { position: relative; margin-bottom: calc(var(--para) * 0.5); }
+.prose ul > li::before {
+  content: ''; position: absolute; left: -1.05em; top: calc(0.5lh - 2.5px);
+  width: 5px; height: 5px; background: var(--accent);
+}
+.prose ol > li::marker { font-family: var(--font-mono); font-weight: 350; font-size: 0.78em; color: var(--accent); }
+
+/* 链接：强调色、不加下划线；鼠标移上去整块反色（仿豆瓣），触屏上按下时反色 */
+.prose a { color: var(--accent); text-decoration: none; transition: background-color 0.15s, color 0.15s; }
+/* 反色块上下撑满行距：底色只铺字形那一窄条时，鼠标扫过两行之间的空隙会算移出，一灭一亮（2026-10-21）。
+   行内元素的上下内边距不挪动文字；跨行时每行各自是完整一块 */
+.prose a { padding-block: calc((var(--lh) - 1.2) * 0.5em); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+@media (hover: hover) { .prose a:hover { background: var(--accent); color: var(--bg); } }
+.prose a:active { background: var(--accent); color: var(--bg); }
+
+/* 代码：等宽、浅色底 */
+.prose code { font-family: var(--font-mono); font-weight: 350; font-size: 0.86em; padding: 0.1em 0.3em; background: color-mix(in srgb, var(--ink) 6%, transparent); }
+.prose pre { overflow-x: auto; padding: 0.9em 1em; background: color-mix(in srgb, var(--ink) 6%, transparent); line-height: 1.7; text-align: left; }
+.prose pre code { padding: 0; background: none; font-size: 0.8em; }
+
+/* 表格：三线表 */
+.prose .prose-table { overflow-x: auto; margin: 0 0 var(--para); }
+.prose table { width: 100%; border-collapse: collapse; font-size: 0.86em; line-height: 1.6; text-align: left; margin: 0; }
+.prose table { border-top: 1.5px solid var(--ink); border-bottom: 1.5px solid var(--ink); }
+.prose thead :is(th, td) { border-bottom: 1px solid var(--ink); font-weight: 700; }
+.prose :is(td, th) { padding: 0.45em 1.2em 0.45em 0; vertical-align: top; }
+
+/* 图片：任何图都不放大到超过原尺寸；单独成段的居中 */
+.prose :is(img, video) { max-width: 100%; height: auto; }
+.prose img { display: block; margin: calc(var(--para) * 2) auto; }
+.prose p:not(.prose-media) img { display: inline; margin: 0; vertical-align: -0.2em; max-height: 1.6em; width: auto; }   /* 夹在文字里的小图（表情） */
+.prose iframe { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; margin: calc(var(--para) * 2) 0; }
+.prose figure { margin: calc(var(--para) * 2) 0; }
+.prose figure img { margin: 0 auto; }
+.prose .prose-media { text-indent: 0; text-align: center; }
+/* 图注紧跟图片：图片下方的段距收掉一半，图注自己的 0.7em 上距撑开，不再用负边距（会盖住图） */
+.prose .prose-media:has(+ .prose-caption) { margin-bottom: 0; }
+.prose .prose-media:has(+ .prose-caption) img { margin-bottom: 0; }
+
+/* 图注：只在有把握时认（figcaption 一定认；紧跟图片、很短、带「图：」「▲」「Photo:」「来源」记号的段落才认） */
+.prose :is(figcaption, .prose-caption) {
+  margin-top: 0.7em; font-family: var(--font-body); font-weight: 400; font-size: 0.78em; line-height: 1.7;
+  color: var(--ink-mid); text-align: center; text-indent: 0; letter-spacing: 0.03em;
+}
+
+/* 分隔记号（鸟 01 送信，两侧细线只伸出一小截）：原文的 <hr> 和装饰用的细条图都换成它 */
+.prose hr { display: none; }
+.prose-divider { display: flex; align-items: center; justify-content: center; gap: 0.7em; margin: calc(var(--para) * 3) 0; color: var(--accent); text-indent: 0; }
+.prose-divider::before, .prose-divider::after { content: ''; width: 4.2em; height: 1px; background: var(--ink-ghost); }
+.prose-divider svg { height: 1.2em; width: auto; flex: none; }
+
+/* 文末标记（鸟 03 停驻）：站在最后一行的基线上，和最后一个字黏在一起不单独折行 */
+.prose-end-wrap { white-space: nowrap; }
+.prose-end { display: inline-block; height: 1.05em; width: auto; margin-left: 0.4em; vertical-align: -0.08em; color: var(--accent); }
+.prose-end-line { text-align: left; text-indent: 0; }
+
+/* 文末推广（二维码和那段推广文字）：收成一行，点开可看 */
+.prose-fold { border: 0; }
+.prose-fold > summary {
+  list-style: none; cursor: pointer; font-family: var(--font-mono); font-weight: 350; font-size: 9px;
+  letter-spacing: 0.16em; color: var(--ink-mid); text-transform: uppercase; text-indent: 0;
+}
+.prose-fold > summary::-webkit-details-marker { display: none; }
+.prose-fold[open] > summary { margin-bottom: var(--para); }
+
+/* ——— V0.9.1 认格式（typeset.ts 标的类） ——— */
+/* 段落认出来的小标题：和 h 标签同一套 */
+.prose p.prose-subhead {
+  color: var(--ink);
+  margin: calc(var(--lh) * 1.4em) 0 calc(var(--lh) * 0.35em);
+  font-weight: 700; line-height: 1.5; letter-spacing: 0.04em; text-align: left; text-indent: 0;
+}
+.prose p.prose-subhead + p.prose-subhead { margin-top: 0; }
+/* 二档：很短、没句末标点，够不上小标题的，只是不缩进、不两端撑开 */
+.prose p.prose-short { text-indent: 0; text-align: left; }
+/* 出处说明、作者信息：小字灰字 */
+.prose .prose-note { font-size: 0.8em; line-height: 1.7; color: var(--ink-mid); text-align: left; text-indent: 0; letter-spacing: 0.03em; }
+.prose .prose-byline { margin-bottom: calc(var(--para) * 2); }
+/* 图片版权行：比图注再淡一点 */
+.prose .prose-caption.prose-credit { margin-top: 0.2em; font-size: 0.7em; color: var(--ink-ghost); }
+.prose .prose-caption + .prose-caption { margin-top: 0.2em; }
+/* 文末附注（作者、投稿、跳转等）：收在结尾标记之后，小字 */
+.prose .prose-tail { margin-top: calc(var(--para) * 2); font-size: 0.8em; line-height: 1.7; color: var(--ink-mid); }
+.prose .prose-tail :is(p, li) { text-indent: 0; text-align: left; margin-bottom: 0.4em; }
+/* 只包了一层列表的列表项（BBC 嵌套）：不再画外层的记号 */
+.prose li.prose-li-wrap { list-style: none; }
+.prose li.prose-li-wrap::before, .prose li.prose-li-wrap::marker { content: none; }
+/* 表格里短的列不折行，把空间让给长的列 */
+.prose td.prose-nowrap, .prose th.prose-nowrap { white-space: nowrap; }
+.prose li.prose-li-wrap > :is(ul, ol) { padding-left: 0; margin-bottom: 0; }
+/* figcaption 里再分段（BBC：说明一段、来源一段）：外层已经是小字，里面不再缩一次 */
+.prose figcaption .prose-caption { margin: 0; font-size: inherit; }
+.prose figcaption .prose-caption.prose-credit { margin-top: 0.2em; font-size: 0.9em; }
+
+/* 深色：图片稍压暗，免得白底大图像手电筒照脸 */
+:root[data-mode="dark"] .prose :is(img, video) { filter: brightness(0.86); }
+/* 高对比：链接和正文同为黑（白），靠下划线分开；墨水屏上动画只会拖影，全关 */
+:root[data-theme="contrast"] .prose a { text-decoration: underline; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+:root[data-theme="contrast"] .prose :is(img, video) { filter: none; }
+
+/* 文末的鸟连点 3 下：起飞（寒鸦彩蛋），下一篇它会回来 */
+.prose-end.flying { animation: end-fly 0.9s ease-in forwards; }
+@keyframes end-fly { 30% { transform: translateY(-2px) rotate(-6deg); } 100% { transform: translate(60px, -90px) rotate(-18deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .prose-end.flying { animation: none; opacity: 0; transition: opacity 0.4s; } }
+:root[data-theme="contrast"] .prose-end.flying { opacity: 0; }   /* 高对比没有动画：直接不见 */
+:root[data-theme="contrast"][data-mode="dark"] .prose img.hc-invert { filter: invert(1) hue-rotate(180deg); }   /* 白底示意图反色（5b-2） */
+/* 诗：不缩进，一行一句，行距比正文稍紧（设置页预览里那首，2026-10-24） */
+.prose .prose-poem { text-indent: 0 !important; line-height: calc(var(--lh) * 0.92); }
+.prose h4 + .prose-poem { margin-top: 0.5em; }
+/* 拉得太开的段落（typeset.ts 量出来的）：左对齐；量的时候先临时按左对齐排 */
+.prose p.prose-measure, .prose p.prose-ragged { text-align: left; }
+/* 标点挤压：行首的开标点（「“（）压成半个字宽（Chrome / Edge 有；Safari 暂不支持，照常显示）。行尾、相邻标点的挤压是浏览器默认就有的 */
+.prose { text-spacing-trim: trim-start; }

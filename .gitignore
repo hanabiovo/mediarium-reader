@@ -1,0 +1,21 @@
+# 依赖与构建产物
+node_modules/
+dist/
+*.tsbuildinfo
+
+# 密钥与私人配置：永远不进仓库
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.pem
+*.key
+keystore.properties
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log

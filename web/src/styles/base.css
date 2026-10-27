@@ -1,0 +1,366 @@
+/* 灵媒基础样式。规则见「阶段3 阅读器骨架.md」→ 视觉规则（3b 定稿）。 */
+@import './tokens.css';
+
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body, #root { height: 100%; }
+/* 关掉浏览器自带的「下拉刷新」（安卓 Chrome），免得滚到顶再往下拉时误刷新整页；刷新用页面里的按钮。
+   用 contain 不用 none：none 连滚到头时的回弹拉伸也关了，到顶到底是硬停（2026-10-21 Hana 摸出来的） */
+html, body { overscroll-behavior-y: contain; }
+html { touch-action: manipulation; }   /* 双击不放大（2026-10-23，见 lib/zoom.ts） */
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-ui); font-weight: 500;   /* 界面字比正文粗一档，小字不发虚（3d 定） */
+  font-variant-numeric: lining-nums;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+/* 输入框、下拉框浏览器默认不继承字体（用系统字体）：一律跟随全局，再由各自的 class 改（2026-10-24 Hana 发现有的没跟随） */
+input, select, textarea, optgroup { font: inherit; color: inherit; }
+:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; }
+
+/* ── 字的五种样子 ───────────────────────── */
+.mono-label {
+  font-family: var(--font-mono); font-weight: 350; font-size: 9px; line-height: 1;
+  letter-spacing: 0.16em; color: var(--ink-mid); text-transform: uppercase;
+}
+
+/* ── 外壳：手机上下排布；720 以上左侧竖栏 ─── */
+.shell { min-height: 100%; }
+.content { position: relative; }
+.content {
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);
+}
+/* 二级页底部留白；整屏高的二级页（管理、目录、设置子页）的最小高度要扣掉它，否则内容短的页也能上下滚一截（2026-10-22 Hana 发现） */
+:root { --deep-pad: calc(env(safe-area-inset-bottom) + 24px); }
+.content.deep { padding-bottom: var(--deep-pad); }
+
+/* ── 一级页面页头 ───────────────────────── */
+.page-header { padding-top: max(14px, env(safe-area-inset-top)); }
+.topbar {
+  height: 44px; padding: 0 12px 0 var(--gutter);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.topbar .mono-label { letter-spacing: 0.2em; }
+.page-header.collapsible { display: contents; }
+/* 可收起的页头：顶栏原样贴顶；刊头贴在它下面，往上收到只剩一行 */
+.page-header.collapsible .topbar {
+  position: sticky; top: 0; z-index: 6; background: var(--bg);
+  height: auto; min-height: calc(44px + max(14px, env(safe-area-inset-top))); padding-top: max(14px, env(safe-area-inset-top));
+}
+.masthead-wrap { position: sticky; z-index: 5; background: var(--bg); }
+.masthead-wrap .masthead { padding-bottom: 14px; }
+.grow-left { transform-origin: left bottom; }
+.grow-right { transform-origin: right bottom; }
+.masthead-row {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 40px; padding: 0 var(--gutter);
+  display: flex; justify-content: space-between; align-items: center; pointer-events: none;
+  font-family: var(--font-ui-display); font-size: 18px; font-weight: 500; letter-spacing: 0.1em; color: var(--ink);
+}
+.topbar-actions { display: flex; gap: 4px; align-items: center; }
+.icon-btn.spinning svg { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .icon-btn.spinning svg { animation: none; opacity: 0.4; } }
+.icon-btn {
+  width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: var(--ink);
+}
+.masthead {
+  padding: 26px var(--gutter) 0;
+  display: grid; grid-template-columns: auto 1fr; row-gap: 10px; align-items: baseline;
+}
+.masthead-lead { font-family: var(--font-display); font-size: 42px; line-height: 1; display: flex; align-items: flex-end; }
+.masthead-title {
+  justify-self: end; font-family: var(--font-ui-display); font-size: 30px; font-weight: 700; font-synthesis-weight: none;
+  letter-spacing: 0.1em; line-height: 1;
+}
+.masthead-sub { justify-self: end; }
+
+/* ── 主导航 ─────────────────────────────── */
+.mainnav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  /* 有底部安全区（iPhone 全面屏）时，图标那一层矮 12px：安全区本身已经垫了 34px，再加满 64px 就显得底下空一大截（2026-10-23） */
+  height: calc(var(--nav-h) - min(12px, env(safe-area-inset-bottom)) + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  background: var(--bg); border-top: 1px solid var(--rule);
+}
+.mainnav-logo { display: none; }
+.tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--muted); }
+.tab.active { color: var(--ink); }
+.tab-dot { width: 3px; height: 3px; border-radius: 2px; }
+.tab.active .tab-dot { background: var(--accent); }
+
+/* 二级页面在手机上隐藏底栏 */
+.nav-slot.deep { display: none; }
+
+@media (min-width: 720px) {
+  .nav-slot, .nav-slot.deep { display: block; grid-column: 1; grid-row: 1; }
+  .shell { display: grid; grid-template-columns: var(--rail-w) 1fr; }
+  :root { --deep-pad: 40px; }
+  .content, .content.deep { padding-bottom: 40px; min-width: 0; }
+  .mainnav {
+    position: sticky; top: 0; height: 100vh; grid-row: 1; grid-column: 1;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 30px 0 26px; border-top: none;
+  }
+  .mainnav-logo { display: block; margin-bottom: 26px; color: var(--ink); }
+  .tab { width: 44px; height: 44px; }
+  .tab:last-child { margin-top: auto; }
+  .content { grid-column: 2; grid-row: 1; }
+}
+
+/* ── 通用 ───────────────────────────────── */
+.page-body { padding: 40px var(--gutter) 0; }
+.page-note { color: var(--ink-mid); font-size: 12px; line-height: 1.8; }
+.page-error { color: var(--danger); font-size: 13px; }
+
+/* ── 登录 ───────────────────────────────── */
+.login {
+  min-height: 100%; display: flex; flex-direction: column; justify-content: center;
+  padding: 40px var(--gutter); max-width: 420px; margin: 0 auto;
+}
+.login-mark { color: var(--ink); margin-bottom: 28px; }
+.login-title { font-family: var(--font-ui-display); font-size: 30px; font-weight: 700; font-synthesis-weight: none; letter-spacing: 0.2em; }
+.login-form { display: flex; flex-direction: column; gap: 14px; margin-top: 48px; }
+.login-form label { display: block; }
+.login-form input {
+  width: 100%; border: none; border-bottom: 1px solid var(--ink); background: transparent;
+  padding: 10px 0; font-family: var(--font-mono); font-weight: 350; font-size: 13px; color: var(--ink); outline: none;
+}
+.login-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+.login-switch { font-size: 12px; color: var(--ink-mid); min-height: 44px; }
+.login-switch:hover { color: var(--accent); }
+.login-submit { min-height: 44px; padding-left: 24px; font-family: var(--font-ui); font-size: 15px; letter-spacing: 0.3em; }
+.login-submit:disabled { color: var(--ink-faint); cursor: default; }
+.login-hint { color: var(--ink-mid); font-size: 12px; line-height: 1.9; margin-top: 28px; }
+
+/* ── 鸟（空状态、读取中、出错；src/components/Bird.tsx） ── */
+.bird { display: inline-flex; line-height: 0; }
+.bird svg { height: 100%; width: auto; }
+.bird-note { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 44px 0 20px; text-align: center; }
+.bird-note .bird { height: 52px; color: var(--accent); }
+.bird-note p { font-size: 13px; line-height: 1.8; color: var(--ink-mid); letter-spacing: 0.06em; max-width: 26em; }
+.bird-note-diving .bird { animation: bird-bob 1.8s ease-in-out infinite; }
+@keyframes bird-bob { 50% { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .bird-note-diving .bird { animation: none; } }
+
+/* ── 临时排版面板（3d 验收用，3e 拿掉） ── */
+.typo-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.typo-preset { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 10px 12px; background: var(--surface); text-align: left; border: 1px solid transparent; }
+.typo-preset.on { border-color: var(--accent); }
+.typo-preset-name { font-size: 15px; letter-spacing: 0.1em; }
+.typo-preset-note { font-size: 11px; color: var(--ink-mid); }
+.typo-row { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 12px; min-height: 36px; font-size: 14px; }
+/* 选框高度写死、和字体无关：换哪款字体都不裁字（2026-10-21） */
+.typo-row select { height: 38px; line-height: 38px; padding: 0 8px; font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--ink-ghost); overflow: hidden; }
+.typo-row input[type="range"] { accent-color: var(--accent); }
+.typo-row input[type="checkbox"] { justify-self: start; }
+.typo-link { grid-template-columns: 64px 1fr auto; row-gap: 8px; }
+.typo-hint { margin: -6px 0 0 76px; font-size: 12px; color: var(--ink-mid); }
+.typo-btn { justify-self: start; min-height: 36px; font-size: 14px; letter-spacing: 0.08em; color: var(--accent); }
+.typo-btn.danger { color: var(--danger); }
+.typo-sample { margin-top: 4px; padding: 16px 20px 18px; background: var(--surface); display: flex; flex-direction: column; gap: 10px; }
+.typo-sample-title { font-family: var(--font-title); font-size: 20px; font-weight: 700; font-synthesis-weight: none; line-height: 1.45; }
+.typo-sample .prose p:last-child { margin-bottom: 0; }
+
+/* ── 界面预设「点阵」：寒蝉点阵按 16px 网格画，界面里的字号都对齐到 16 或 32（等宽小标签照旧） ── */
+:root[data-ui="pixel"] body { -webkit-font-smoothing: none; }
+:root[data-ui="pixel"] .masthead-title, :root[data-ui="pixel"] .login-title { font-size: 32px; letter-spacing: 0.06em; }
+:root[data-ui="pixel"] :is(.masthead-row, .shelf-section-name, .stream-tab, .sheet-title, .mag-title, .manage-group-name,
+  .cover-part, .shelf-row-title, .stream-title, .mag-entry-title, .stream-source, .page-note, .bird-note p, .typo-row, .typo-preset-name) { font-size: 16px; }
+:root[data-ui="pixel"] .cover-part.latin { font-size: 16px; }
+
+.bird-note-wait { min-height: 150px; }   /* 读取中的前 300ms：先占住位置，鸟露面时不跳 */
+
+:root[data-theme="contrast"] *, :root[data-theme="contrast"] *::before, :root[data-theme="contrast"] *::after { animation: none !important; transition: none !important; }
+/* 墨水屏 APK（0.29.7，lib/native.ts）：动画一律不要；换页面闪一下黑；字迹加深给字描一道细边（宋体的细横不再被抖成点） */
+:root[data-ink] *, :root[data-ink] *::before, :root[data-ink] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+.ink-flash { position: fixed; inset: 0; z-index: 9999; background: #000; pointer-events: none; }
+:root[data-ink-bold] body { -webkit-text-stroke: 0.3px currentColor; }
+
+/* 设置页（3e）：一级列表、二级页 */
+.set-home { padding-top: 32px; padding-bottom: 48px; }
+.set-list { display: flex; flex-direction: column; }
+.set-row {
+  display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; gap: 16px;
+  min-height: 56px; padding: 16px 0; color: var(--ink); text-decoration: none;
+}
+.set-row + .set-row { border-top: 1px solid var(--rule); }
+.set-row-title { font-family: var(--font-ui-display); font-size: 16px; letter-spacing: 0.14em; }
+.set-row-note { font-size: 12px; color: var(--ink-mid); text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-row-go { grid-column: 3; font-family: var(--font-display); font-size: 18px; color: var(--ink-faint); }   /* 没有说明文字的行（账户）也靠最右 */
+.set-row.soon { color: var(--muted); }
+.set-row.soon .mono-label { grid-column: 3; }
+.set-row:hover .set-row-go { color: var(--accent); }
+.set-block { display: flex; flex-direction: column; gap: 18px; }
+.set-group { display: flex; flex-direction: column; gap: 14px; }
+.set-page .manage-body { gap: 44px; }
+.set-sub { margin-top: 10px; }
+.set-more { margin-top: 4px; text-decoration: none; }
+.set-choices { display: flex; gap: 10px; align-items: baseline; margin-inline: -6px; }
+.set-choice { min-height: 36px; padding: 0 6px; font-size: 14px; letter-spacing: 0.08em; color: var(--muted); transition: background-color 0.15s, color 0.15s; }
+.set-choice.on { color: var(--bg); background: var(--accent); }   /* 选中：反色块（同 .sheet-choice） */
+.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.theme-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 14px 12px; text-align: left;
+  border: 1px solid var(--rule); min-height: 112px;
+}
+.theme-card.on { border-color: var(--accent); }
+.theme-card-name { font-family: var(--font-ui-display); font-size: 16px; letter-spacing: 0.14em; }
+.theme-card-body { font-size: 13px; }
+.theme-card-link { font-size: 13px; }
+.theme-card-note { margin-top: auto; font-family: var(--font-mono); font-weight: 350; font-size: 9px; letter-spacing: 0.1em; }
+.set-danger { align-self: flex-start; min-height: 44px; color: var(--danger); font-size: 14px; letter-spacing: 0.08em; }
+.set-about { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.set-hint { margin: -4px 0 0; }
+.set-check { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 4px; align-items: center; font-size: 14px; }
+.set-check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.set-check-note { grid-column: 2; font-size: 12px; color: var(--ink-mid); line-height: 1.7; }
+
+/* 轻提示（src/components/Toast.tsx）：手机在底栏正上方，电脑在左下角 */
+.toast {
+  position: fixed; z-index: 60; left: var(--gutter); right: var(--gutter);
+  bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+  background: var(--ink); color: var(--bg); font-size: 13px; line-height: 1.6; letter-spacing: 0.04em;
+  animation: toast-in 0.18s ease-out;
+}
+.toast-error:not(.has-bird)::before { content: ''; flex: none; width: 6px; height: 6px; background: var(--danger); }
+.toast-text { flex: 1; min-width: 0; }
+.toast-action { flex: none; min-height: 32px; font-size: 13px; letter-spacing: 0.1em; color: var(--bg); text-decoration: underline; text-underline-offset: 0.25em; }
+/* 鸦都放在同样大的一格里（0.29.4：原来 18px 高，信封、问号这些细节看不清；各只宽窄不一，固定一格，字不跟着挪） */
+.toast-bird { flex: none; width: 38px; height: 28px; margin: -4px 0; justify-content: center; color: var(--bg); }
+.toast-bird svg { width: 100%; height: 100%; }
+@media (min-width: 720px) { .toast { left: calc(var(--rail-w) + var(--gutter)); right: auto; bottom: 28px; max-width: 420px; } }   /* 左边对齐内容栏 */
+@keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* 欢迎页（src/components/Welcome.tsx）：logo 在正中，和原生开屏的图标同一位置 */
+.welcome {
+  position: fixed; inset: 0; z-index: 100; background: var(--bg); color: var(--ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.welcome-logo { line-height: 0; }
+.welcome-slogan, .welcome-name { position: absolute; left: 0; right: 0; text-align: center; animation: welcome-up 0.5s 0.15s ease-out both; }
+.welcome:not(.fonts) .welcome-slogan { visibility: hidden; }   /* 字体到了再出来，免得先空白再跳出来 */
+.welcome-slogan { top: calc(50% + 72px); font-family: var(--font-ui-display); font-size: 16px; letter-spacing: 0.3em; }
+.welcome-name { bottom: calc(40px + env(safe-area-inset-bottom)); color: var(--ink-mid); animation-delay: 0.3s; }
+.welcome.leaving { opacity: 0; transition: opacity 0.3s ease; }
+@keyframes welcome-up { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .welcome-slogan, .welcome-name { animation: none; } }
+
+/* 会变身的 logo（寒鸦彩蛋）：被戳得一抖，翻过去成寒鸦，几秒后翻回来 */
+.egg-logo { position: relative; display: inline-block; vertical-align: top; flex: none; line-height: 0; cursor: default; -webkit-tap-highlight-color: transparent; user-select: none; }
+/* logo 和寒鸦叠在同一个固定大小的框里：换的只是里面那只，框不动，页面也就不跟着跳（2026-10-21） */
+.egg-logo > * { position: absolute; inset: 0; }
+.egg-logo > * { transition: transform 0.26s ease-in, opacity 0.26s; }
+.egg-logo.out > * { animation: egg-shake 0.26s ease-in-out; transform: rotateY(90deg); }
+.egg-logo.crow > * { animation: egg-in 0.3s ease-out; }
+.egg-logo.back > * { transform: rotateY(90deg); }
+.egg-crow { display: flex; align-items: center; justify-content: center; color: var(--accent); }
+.egg-crow svg { height: 82%; width: auto; }
+@keyframes egg-shake { 0% { transform: rotate(0); } 30% { transform: rotate(-8deg); } 60% { transform: rotate(6deg) rotateY(40deg); } 100% { transform: rotateY(90deg); } }
+@keyframes egg-in { from { transform: rotateY(-90deg); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .egg-logo > * { transition: opacity 0.2s; }
+  .egg-logo.out > *, .egg-logo.back > * { animation: none; transform: none; opacity: 0; }
+  .egg-logo.crow > * { animation: none; }
+}
+.set-row { width: 100%; text-align: left; font: inherit; }
+button.set-row .set-row-note, a.set-row .set-row-note { text-align: right; }
+.mainnav-logo .egg-logo { cursor: pointer; }
+
+/* 勾选框（2026-10-22 Hana：不喜欢原生的）：细框小方块，勾上时里面填一枚强调色小方块，和区块标题前的方点一路 */
+input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; flex: none;
+  width: 14px; height: 14px; margin: 0; border: 1px solid var(--ink-mid); border-radius: 0;
+  background: transparent; display: inline-grid; place-content: center; cursor: pointer; vertical-align: -2px;
+}
+input[type="checkbox"]::before { content: ''; width: 6px; height: 6px; background: var(--accent); transform: scale(0); transition: transform 0.12s; }
+input[type="checkbox"]:checked { border-color: var(--ink); }
+input[type="checkbox"]:checked::before { transform: scale(1); }
+input[type="checkbox"]:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+
+/* 滚动条：只改电脑上的（手机上系统自带的细条好看，不动）。细、透明槽、淡色滑块 */
+@media (pointer: fine) {
+  html, .sheet, .sheet * { scrollbar-width: thin; scrollbar-color: var(--ink-ghost) transparent; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--ink-ghost); border: 2px solid var(--bg); border-radius: 0; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+  ::-webkit-scrollbar-button { display: none; }
+}
+
+/* 账户页 · 设备（5c） */
+.acct-devices { list-style: none; display: flex; flex-direction: column; }
+.acct-device { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; align-items: baseline; padding: 12px 0; }
+.acct-device + .acct-device { border-top: 1px solid var(--rule); }
+.acct-device-name { font-size: 14px; }
+.acct-device-meta { grid-column: 1; font-size: 11px; color: var(--ink-mid); }
+.acct-device button { grid-column: 2; grid-row: 1; min-height: 32px; font-size: 13px; }
+.acct-device button:hover { color: var(--danger); }
+.acct-this { grid-column: 2; grid-row: 1; font-size: 11px; color: var(--accent); letter-spacing: 0.1em; }
+
+/* 双语标题（阶段 4）：译文用原来的标题样式，原文在下一行小一号、淡色，像副题 */
+.title-orig { display: block; font-family: var(--font-ui); font-size: 12px; line-height: 1.5; letter-spacing: 0.01em; color: var(--ink-faint); overflow-wrap: anywhere; }
+.stream-text .title-orig { margin-top: -5px; }
+.card-title + .title-orig { margin-top: -2px; }
+.mag-entry .title-orig { margin-top: -6px; }
+
+/* 账户页名字旁的鸟（5d）：管理入口 */
+.acct-who { display: flex; align-items: center; gap: 6px; }
+.acct-bird { display: inline-flex; align-items: center; min-height: 32px; min-width: 32px; padding: 0 4px; color: var(--accent); }
+.acct-bird .bird { height: 18px; transition: transform 0.2s ease; }
+.acct-bird:hover .bird { transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce) { .acct-bird .bird { transition: none; } }
+/* 设置 · 信源：去找源收成底下一行小字（0.23） */
+.set-find a { color: var(--accent); }
+.shelf-view-btn { font-family: var(--font-ui-display); font-size: 16px; letter-spacing: 0; }
+
+/* 寒鸦衔色（随机配色，2026-10-24） */
+.roll { display: flex; flex-direction: column; gap: 12px; margin-top: 18px; }
+.roll-head { display: flex; align-items: center; gap: 14px; }
+.roll-bird { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; color: var(--accent); }
+.roll-bird .bird { display: inline-flex; width: 34px; }
+.roll-bird .bird svg { width: 34px; height: auto; }
+.roll-bird.flap .bird { animation: roll-flap 0.45s ease; }
+@keyframes roll-flap { 0% { transform: none } 35% { transform: translateY(-6px) rotate(-12deg) } 70% { transform: translateY(1px) rotate(4deg) } 100% { transform: none } }
+.roll-title { font-family: var(--font-ui-display); font-size: 14px; letter-spacing: 0.16em; color: var(--ink); }
+.roll-undo { width: 36px; min-height: 36px; font-size: 18px; color: var(--ink-mid); }
+.roll-undo:disabled { color: var(--ink-faint); cursor: default; }
+.roll-now { display: flex; flex-direction: column; gap: 8px; }
+.roll-strips { display: flex; flex-direction: column; gap: 4px; }
+.roll-strip { height: 28px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; border: 1px solid; }
+.roll-dots { display: flex; gap: 5px; }
+.roll-dots i { width: 9px; height: 9px; display: block; }
+.roll-save { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.roll-name { font-family: var(--font-ui-display); font-size: 14px; letter-spacing: 0.12em; color: var(--ink-mid); }
+.roll-mine-label { margin-top: 10px; }
+.roll-mine { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 3px 3px 6px; margin: 0 -3px; }
+.roll-mine::-webkit-scrollbar { display: none; }
+.roll-card { flex: none; position: relative; width: 84px; height: 56px; padding: 7px 8px; border: 1px solid; text-align: left; font-size: 12px; letter-spacing: 0.06em; line-height: 1.35; transition: opacity 0.15s, transform 0.15s; -webkit-touch-callout: none; user-select: none; }
+.roll-card-name { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-all; }
+.roll-card-bird { position: absolute; right: 5px; bottom: 4px; width: 17px; display: inline-flex; }
+.roll-card-bird svg { width: 17px; height: auto; }
+.roll-card.on { outline: 1.5px solid var(--accent); outline-offset: 2px; }
+.roll-card.pressing { opacity: 0.55; transform: scale(0.97); }
+
+/* 保存信源的日志浮层（0.29，components/SaveLog.tsx）：和提示条一个位置、一个样子，一行一步 */
+.savelog {
+  position: fixed; z-index: 58; left: var(--gutter); right: var(--gutter);
+  bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom));
+  padding: 12px 16px 10px; background: var(--ink); color: var(--bg);
+  display: flex; flex-direction: column; gap: 4px; animation: toast-in 0.18s ease-out;
+}
+.shell:has(.content.deep) .savelog { bottom: calc(16px + env(safe-area-inset-bottom)); }
+@media (min-width: 720px) { .savelog, .shell:has(.content.deep) .savelog { left: calc(var(--rail-w) + var(--gutter)); right: auto; bottom: 28px; width: 420px; } }
+.savelog-head { display: flex; align-items: center; justify-content: space-between; min-height: 20px; }
+.savelog-title { color: var(--bg); opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.savelog-x { width: 28px; height: 28px; margin: -6px -8px -6px 0; display: flex; align-items: center; justify-content: center; color: var(--bg); opacity: 0.7; }
+.savelog-line { display: flex; align-items: baseline; gap: 12px; font-size: 13px; line-height: 1.6; letter-spacing: 0.04em; }
+.savelog-line.step span { animation: savelog-pulse 1.6s ease-in-out infinite; }
+.savelog-line.ok { opacity: 0.75; }
+.savelog-line.bad span { color: color-mix(in srgb, var(--danger) 45%, var(--bg)); }
+.savelog-line.note { opacity: 0.7; font-size: 12px; }
+.savelog-retry { flex: none; margin-left: auto; color: var(--bg); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; }
+@keyframes savelog-pulse { 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .savelog-line.step span { animation: none; } }

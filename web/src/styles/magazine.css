@@ -1,0 +1,93 @@
+/* 杂志目录（视觉稿「杂志目录」「宽屏三栏」） */
+
+/* 二级页面顶栏：左返回，右编号；文字类的最右元素对齐页边 */
+.deep-bar {
+  height: 44px; margin-top: max(14px, env(safe-area-inset-top)); padding: 0 12px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.magazine .deep-bar { padding-right: 32px; }   /* 编号右边和翻页条最右的按钮对齐 */
+
+.magazine { min-height: calc(100vh - var(--deep-pad)); min-height: calc(100dvh - var(--deep-pad)); display: flex; flex-direction: column; }
+/* 顶上这一块（返回、编号、刊名）贴顶不动，文章从它下面滚过去 */
+.mag-top { position: sticky; top: 0; z-index: 3; background: var(--bg); padding-bottom: 20px; }
+.mag-date { position: sticky; top: calc(var(--mag-top-h, 0px) + 24px); align-self: start; }
+.mag-head { padding: 52px var(--gutter) 0 calc(var(--gutter) + 96px); display: flex; flex-direction: column; gap: 6px; }
+.mag-title { font-family: var(--font-ui-display); font-size: 22px; font-weight: 600; font-synthesis-weight: none; letter-spacing: 0.1em; line-height: 1.4; }
+.mag-latin { font-family: var(--font-ui); font-style: italic; font-size: 15px; color: var(--ink-mid); }
+.mag-note { padding: 44px var(--gutter) 0 calc(var(--gutter) + 96px); }
+
+.magazine { touch-action: pan-y; }
+/* 手机上翻页条贴着屏幕底：二级页底部本来留的那段（--deep-pad，已含 iPhone 底部安全区）这里扣回去，
+   否则安全区算了两遍，翻页条下面空出一大截（2026-10-23 Hana 在 iPhone 12 上发现） */
+@media (max-width: 719px) {
+  .magazine { min-height: 100vh; min-height: 100dvh; margin-bottom: calc(-1 * var(--deep-pad)); }
+}
+.mag-body { padding: 24px var(--gutter) 0; display: grid; grid-template-columns: 96px minmax(0, 1fr); }
+.mag-date { display: flex; flex-direction: column; gap: 6px; padding-top: 2px; }
+.mag-day { font-family: var(--font-display); font-size: 40px; line-height: 0.85; }
+.mag-list { list-style: none; display: flex; flex-direction: column; gap: 30px; }
+.mag-entry { display: flex; flex-direction: column; gap: 8px; }
+.mag-entry-title { font-family: var(--font-ui); font-size: 15px; font-weight: 500; line-height: 1.7; letter-spacing: 0.02em; }
+.mag-entry-meta { font-family: var(--font-mono); font-weight: 350; font-size: 9px; letter-spacing: 0.08em; color: var(--ink-mid); }
+.mag-entry-no { color: var(--accent); }
+.mag-entry.read .mag-entry-title, .mag-entry.read .mag-entry-no { color: var(--ink-mid); }
+.mag-entry.active .mag-entry-title { color: var(--ink); }
+
+.mag-pager {
+  margin-top: auto; padding: 14px 20px max(14px, env(safe-area-inset-bottom));
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; bottom: 0; z-index: 3; background: var(--bg);
+}
+.mag-body { padding-bottom: 40px; }
+.mag-refresh { display: flex; align-items: center; justify-content: center; min-width: 44px; }
+.mag-refresh.spinning svg { animation: spin 0.9s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .mag-refresh.spinning svg { animation: none; opacity: 0.4; } }
+.mag-pager button {
+  min-height: 44px; padding: 0 12px; color: var(--ink);
+  font-family: var(--font-mono); font-weight: 350; font-size: 10px; letter-spacing: 0.1em;
+}
+.mag-pager button:disabled { color: var(--ink-faint); cursor: default; }
+
+/* 一份刊物：没打开文章只显示目录；1024 以下打开文章时只显示文章 */
+.feed-layout.has-article .magazine-pane { display: none; }
+.feed-layout:not(.has-article) .article-pane { display: none; }
+
+/* 720 以上、没打开文章时：目录成一栏居中，宽度随窗口在一个区间里伸缩（不固定，也不铺满，2026-10-20 Hana 提出）。
+   翻页条贴屏幕底部，离底边的距离和顶栏离顶边的距离相同，上下对称 */
+@media (min-width: 720px) {
+  .feed-layout:not(.has-article) .magazine { max-width: clamp(540px, 50vw, 680px); margin: 0 auto; }
+  /* 返回箭头不跟着居中的一栏走，固定在和文章页一样的位置：连着按返回时箭头不跑（2026-10-20） */
+  .feed-layout:not(.has-article) .mag-back { position: fixed; left: calc(var(--rail-w) + 12px); top: max(14px, env(safe-area-inset-top)); z-index: 4; }
+  .feed-layout:not(.has-article) .magazine .deep-bar { justify-content: flex-end; }
+  .magazine .mag-pager { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+}
+
+/* 1024 以上打开文章时：左目录（380）、右文章并排 */
+@media (min-width: 1024px) {
+  .feed-layout.has-article { display: grid; grid-template-columns: 380px minmax(0, 1fr); }
+  .feed-layout.has-article .magazine-pane, .feed-layout.has-article .article-pane { display: block; }
+  .feed-layout.has-article .magazine-pane { position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+
+  .has-article .magazine { min-height: 100%; }
+  /* 返回箭头的图形对齐栏内左边线（按钮 44px，图形居中） */
+  .has-article .magazine .deep-bar { margin-top: 30px; padding: 0 36px 0 1px; }
+  .has-article .mag-head { padding: 30px 36px 0 20px; }
+  .has-article .mag-title { font-size: 20px; font-weight: 500; }
+  .has-article .mag-latin { margin-top: 2px; font-family: var(--font-mono); font-weight: 350; font-style: normal; font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; }
+  .has-article .mag-note { padding: 40px 36px 0 20px; }
+  .has-article .mag-body { padding: 26px 36px 0 20px; grid-template-columns: 76px minmax(0, 1fr); }
+  .has-article .mag-day { font-size: 36px; line-height: 0.9; }
+  .has-article .mag-list { gap: 28px; }
+  .has-article .mag-entry-title { font-family: var(--font-ui); font-size: 14px; }
+  .has-article .mag-pager { padding: 40px 24px 24px 8px; }
+}
+
+/* 别名含汉字时不压斜（汉字没有斜体） */
+.mag-latin.han { font-style: normal; letter-spacing: 0.12em; }
+@media (min-width: 1024px) { .has-article .mag-latin.han { font-family: var(--font-ui); font-weight: 400; font-size: 11px; text-transform: none; } }
+
+/* 刷新中：刷新键换成俯冲的鸟（Hana 2026-10-21：读取画面挪到手动刷新） */
+.mag-refresh-bird { height: 20px; color: var(--accent); animation: bird-bob 1.8s ease-in-out infinite; }
+.mag-refresh.spinning:has(.mag-refresh-bird) { animation: none; }
+.mag-refresh.spinning:has(.mag-refresh-bird) svg { animation: none; }
+@media (prefers-reduced-motion: reduce) { .mag-refresh-bird { animation: none; } }

@@ -1,0 +1,117 @@
+/* 面板：底部面板与就地展开的小面板（视觉规则 8） */
+.sheet-layer { position: fixed; inset: 0; z-index: 50; }
+.sheet-scrim { position: absolute; inset: 0; background: var(--scrim); }
+.sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; background: var(--bg);
+  border-top: 1px solid var(--rule);
+  padding: 28px var(--gutter) calc(30px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; gap: 26px;
+  animation: sheet-up 0.18s ease-out;
+  max-height: 88vh; overflow-y: auto;
+}
+.sheet-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.sheet-title {
+  font-family: var(--font-ui-display); font-size: 17px; font-weight: 500; letter-spacing: 0.12em; line-height: 1.6;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.sheet-layer.popover .sheet-scrim { background: transparent; }
+.sheet-layer.popover .sheet {
+  left: auto; bottom: auto; width: 280px; border: 1px solid var(--rule);
+  padding: 24px 28px 26px; gap: 22px; animation: sheet-fade 0.12s ease-out;
+  max-width: calc(100vw - 2 * var(--gutter));
+}
+@keyframes sheet-fade { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sheet, .sheet-layer.popover .sheet { animation: none; } }
+
+.sheet-rows { display: grid; grid-template-columns: 72px 1fr; row-gap: 22px; align-items: baseline; }
+.sheet-label { font-family: var(--font-mono); font-weight: 350; font-size: 9px; letter-spacing: 0.14em; color: var(--ink-mid); }
+/* 选中：反色块，和文章里链接被悬停时一样（强调色底、浅色字；2026-10-24 Hana，替掉原来名字后面的「·」）。
+   每个选项左右各留 6px 给色块，间距相应收 12px、整排往两边各让 6px：文字的位置、一排的宽度都和原来一样 */
+.sheet-choices { display: flex; gap: 10px; align-items: baseline; margin-inline: -6px; }
+.sheet-choice { min-height: 32px; padding: 0 6px; font-size: 14px; color: var(--muted); transition: background-color 0.15s, color 0.15s; }
+.sheet-choice.on { color: var(--bg); background: var(--accent); }
+.sheet-choice.on:disabled { color: var(--bg); }
+
+
+/* 菜单项（长按菜单） */
+.sheet-actions { display: flex; flex-direction: column; margin: -6px 0; }
+.sheet-action {
+  min-height: 48px; display: flex; align-items: center; text-align: left;
+  font-family: var(--font-ui); font-size: 15px; letter-spacing: 0.08em; color: var(--ink);
+}
+.sheet-note { font-size: 13px; line-height: 1.8; color: var(--ink-mid); margin-top: -10px; }
+.sheet-action.quiet { color: var(--muted); }
+
+.sheet-layer.popover.form .sheet { width: 380px; }
+.sheet-layer.popover .sheet { max-height: calc(100vh - 32px); }
+.sheet-action.danger { color: var(--danger); }
+.sheet-choices.wrap { flex-wrap: wrap; row-gap: 4px; }
+
+/* 表单（添加 / 编辑信源、分类）：视觉稿「编辑信源」 */
+.form-rows { display: grid; grid-template-columns: 72px minmax(0, 1fr); row-gap: 22px; align-items: baseline; }
+.form-input {
+  width: 100%; border: none; border-bottom: 1px solid var(--ink); background: transparent; border-radius: 0;
+  padding: 0 0 8px; color: var(--ink); outline: none; font-size: 15px;
+}
+.form-input.serif { font-family: var(--font-ui); }
+.form-input.strong { border-bottom-color: var(--ink); }
+.form-input.mono { font-family: var(--font-mono); font-weight: 350; font-size: 12px; letter-spacing: 0.04em; }
+.form-input.faint { border-bottom-color: var(--ink-ghost); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; }
+.form-input::placeholder { color: var(--ink-faint); text-transform: none; letter-spacing: 0.04em; }
+.form-inline { display: flex; gap: 14px; align-items: baseline; }
+.form-text-btn { min-height: 36px; font-size: 14px; flex-shrink: 0; }
+.form-text-btn:disabled, .form-submit:disabled, .form-danger:disabled { color: var(--ink-faint); cursor: default; }
+.form-found { display: flex; flex-direction: column; align-items: flex-start; }
+.form-url { font-family: var(--font-mono); font-weight: 350; font-size: 10px; color: var(--ink-mid); word-break: break-all; line-height: 1.6; }
+.form-actions { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.form-danger { min-height: 44px; color: var(--danger); font-size: 14px; text-align: left; }
+.form-hint { font-size: 12px; color: var(--ink-mid); }
+.form-submit { min-height: 44px; padding-left: 24px; font-family: var(--font-ui); font-size: 15px; letter-spacing: 0.3em; }
+
+.icon-grid { display: grid; grid-template-columns: repeat(auto-fill, 40px); gap: 4px; }
+.icon-pick { position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.icon-pick.on { color: var(--bg); background: var(--accent); }
+/* 新建类别：输入框右边选符号的按钮（0.29.2） */
+.newcat-row { align-items: center; }
+.newcat-row .form-input { flex: 1; min-width: 0; }
+.icon-pick-btn { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--ink); border: 1px solid var(--rule); }
+/* 选中的图标下面一个强调色小点，和底栏当前标签的写法一样 */
+.sheet-action.with-icon { gap: 10px; }
+.sheet-action.with-icon svg { color: var(--ink-mid); }
+.form-fixed { font-family: var(--font-ui); font-size: 15px; display: flex; align-items: baseline; gap: 12px; padding-bottom: 8px; }
+.form-fixed-note { font-family: var(--font-mono); font-weight: 350; font-size: 9px; letter-spacing: 0.12em; color: var(--ink-faint); }
+.form-input.mono.han { font-family: var(--font-ui); font-weight: 400; font-size: 14px; letter-spacing: 0.08em; }
+
+/* 文章里的 Aa 面板：一律从底部出，宽屏上和文章栏一样宽、居中 */
+.sheet-layer.dock .sheet { margin: 0 auto; max-width: calc(var(--read-max) + 2 * var(--gutter)); }
+
+/* 加源（5a）：识别结果、去找源的外链 */
+.form-hint { font-size: 12px; line-height: 1.7; color: var(--ink-mid); }
+.form-links { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+.form-links a { color: var(--accent); text-decoration: none; }
+.feed-inline { display: flex; flex-direction: column; gap: 26px; max-width: 560px; }
+
+/* 接诊：候选（5b-3）。名字一行、地址一行、体检结果一行 */
+.form-found .cand { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; margin: 0 -12px; width: calc(100% + 24px); text-align: left; color: var(--muted); border-radius: 2px; transition: background-color 0.15s; }
+.form-found .cand + .cand { border-top: 1px solid var(--rule); }
+/* 选中：底色托起来（2026-10-22 Hana：只变字色看不出来） */
+.form-found .cand.on { color: var(--ink); background: color-mix(in srgb, var(--ink) 7%, transparent); border-top-color: transparent; }
+.form-found .cand.on + .cand { border-top-color: transparent; }
+.form-found .cand:not(.on):hover { background: color-mix(in srgb, var(--ink) 3%, transparent); }
+.cand-name { font-size: 14px; }
+.cand-best { font-size: 11px; letter-spacing: 0.14em; color: var(--accent); }
+.cand-url { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); word-break: break-all; }
+.cand-check { font-size: 12px; line-height: 1.6; color: var(--ink-mid); }
+.cand.bad .cand-check { color: var(--danger); }
+.cand-retry { margin-left: 10px; color: var(--accent); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }   /* 体检一时没取到：重试（0.29） */
+.form-skip { font-size: 12px; justify-self: start; }
+.cand-fold { font-size: 12px; margin-top: 6px; color: var(--ink-mid); }
+
+/* 密钥输入框（2026-10-22）：不用 type=password，免得浏览器把它当登录表单，又是联想账号又是提示存密码；用圆点遮住 */
+.key-mask { -webkit-text-security: disc; text-security: disc; }
+.key-mask::placeholder { -webkit-text-security: none; }
+.cand-ok { font-size: 11px; letter-spacing: 0.14em; color: var(--ink-mid); }
+
+/* 竖排列表里的当前项（换类别面板等）：浅底，和候选列表同一种 */
+.sheet-action.on { background: color-mix(in srgb, var(--ink) 7%, transparent); color: var(--ink); }

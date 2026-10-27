@@ -1,0 +1,115 @@
+# 灵媒 · Mediarium 的后端：Miniflux + PostgreSQL + 誊写服务（scribe）+ RSSHub（可选）
+#
+# 用法：在 deploy/ 里复制 .env.example 为 .env 并填好，然后
+#   docker compose up -d --build
+# 所有端口只绑本机（127.0.0.1），由宿主机上的 Nginx 对外，见 nginx/ 和 docs/DEPLOY.md。
+name: mediarium
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: mediarium-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: miniflux
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: miniflux
+    # 小内存机器：压低缓存和连接数
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=30"]
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "miniflux"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 256m
+    # 不映射端口：数据库只在 docker 内部网络里
+
+  miniflux:
+    image: miniflux/miniflux:${MINIFLUX_VERSION}
+    container_name: mediarium-miniflux
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://miniflux:${DB_PASSWORD}@db/miniflux?sslmode=disable
+      RUN_MIGRATIONS: "1"
+      CREATE_ADMIN: "1"
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # Miniflux 挂在 /miniflux/ 下，根路径留给灵媒界面
+      BASE_URL: https://${MEDIARIUM_DOMAIN}/miniflux/
+      LISTEN_ADDR: 0.0.0.0:8080
+      # 图片一律经服务器转发，只在打开文章时按需拉取
+      MEDIA_PROXY_MODE: all
+      # 可选：勾了「通过代理抓取」的源走这个代理（被对方拦机房 IP 时用）
+      HTTP_CLIENT_PROXY: ${FETCH_PROXY:-}
+    ports:
+      - "127.0.0.1:8010:8080"
+    healthcheck:
+      test: ["CMD", "/usr/bin/miniflux", "-healthcheck", "auto"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    mem_limit: 192m
+
+  scribe:
+    build: ../server/scribe
+    container_name: mediarium-scribe
+    restart: unless-stopped
+    environment:
+      # Miniflux 在 docker 网络里的地址（容器名 + 容器内端口）
+      MINIFLUX_URL: http://mediarium-miniflux:8080
+      # 加密各账号翻译密钥、给订阅地址签名用的主密钥。设好以后不要再换
+      SCRIBE_SECRET: ${SCRIBE_SECRET}
+      # 可选：单独的订阅地址签名密钥；不填就用 SCRIBE_SECRET
+      FEED_KEY: ${SCRIBE_FEED_KEY:-}
+      # 可选：邀请注册用的 Miniflux 管理员 API 密钥，只用来建普通账号
+      SCRIBE_ADMIN_KEY: ${SCRIBE_ADMIN_KEY:-}
+      # 本站 RSSHub（灵媒里叫「灵媒自建」）。不用 RSSHub 就删掉这行和下面整个 rsshub 服务
+      RSSHUB_URL: http://mediarium-rsshub:1200
+      # 可选：RSSHub 上配好了哪些需要账号的路由（只写配置名，逗号隔开，如 XIAOHONGSHU_COOKIE）
+      HUB_CONFIGURED: ${HUB_CONFIGURED:-}
+      # 可选：体检被拦时经这个代理再试一次，和 Miniflux 用同一个
+      FETCH_PROXY: ${FETCH_PROXY:-}
+      CACHE_MAX_MB: "1024"
+    ports:
+      - "127.0.0.1:8011:8011"
+    volumes:
+      - scribe-data:/data
+    mem_limit: 128m
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+
+  rsshub:
+    # 普通镜像，不带 Chromium。版本请固定成一个 commit SHA 标签，见 https://docs.rsshub.app/deploy/
+    image: diygod/rsshub:${RSSHUB_VERSION}
+    container_name: mediarium-rsshub
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      CACHE_TYPE: memory
+      MEMORY_MAX: "256"
+      CACHE_EXPIRE: "1800"
+      # 可选：需要账号的路由（建议用小号的 cookie）。配了哪个，就把名字写进上面 scribe 的 HUB_CONFIGURED
+      XIAOHONGSHU_COOKIE: ${XIAOHONGSHU_COOKIE:-}
+      INSTAGRAM_COOKIE: ${INSTAGRAM_COOKIE:-}
+    ports:
+      - "127.0.0.1:8012:1200"   # 只为在服务器上调试，不经 Nginx 对外
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:1200/healthz"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+    mem_limit: 384m
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  db-data:
+  scribe-data:

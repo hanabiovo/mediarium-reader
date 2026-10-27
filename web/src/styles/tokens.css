@@ -1,0 +1,47 @@
+/* 等宽：IBM Plex Mono。另起名字并声明它覆盖一段字重，这样小标签可以要 350 的字重——
+   Plex 用 400，里面的汉字（思源黑体，可变字重）用 350，两边粗细才对得上（2026-10-20 Hana 看样张定） */
+@font-face { font-family: 'Mediarium Mono'; src: url('../assets/fonts/ibm-plex-mono-latin-400-normal.woff2') format('woff2'); font-weight: 100 450; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: 'Mediarium Mono'; src: url('../assets/fonts/ibm-plex-mono-latin-500-normal.woff2') format('woff2'); font-weight: 451 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+
+/* 灵媒设计令牌。颜色沿用阶段 2：6 色模型 + 强调色；默认主题「纸本」。
+   3e 做配色系统时，主题切换只改这些变量。 */
+:root {
+  --bg: #f7f5f0;
+  --ink: #1a1a18;          /* 标题、界面文字 */
+  --ink-body: #2b2b29;     /* 文章正文：比标题浅一档（3e，Hana 要标题和正文有色差） */
+  --ink-mid: #6b6960;
+  --ink-faint: #b8b5ae;
+  --ink-ghost: #dedad4;
+  --rule: #e8e5de;
+  --accent: #6b5b53;      /* 冷调棕 */
+  --danger: #b5432c;      /* 只用于危险操作 */
+  --muted: #8f8c84;       /* 未选中的标签、已读标题 */
+  --surface: #fcfaf6;     /* 卡片色块：比底色略浅一点（OKLCH 亮度 +0.016，同色相） */
+  --scrim: rgba(26, 26, 24, 0.22);   /* 底部面板背后的压暗 */
+  /* 颜色由 src/theme/theme.ts 在启动时按主题和明暗写进来（数值在 src/theme/themes.ts）；这里是脚本到位前的兜底 */
+
+  /* 字体（3d 字体系统，2026-10-21 分组）：由 src/typo/fonts.ts 在启动时写进来，这里是字体到位前的兜底。
+     西文在前：字体栈里排第一位的西文字体负责西文与数字。 */
+  --font-ui-display: 'Huiwen-mincho', 'Noto Serif CJK', 'Songti SC', serif;   /* 界面组·大字：页名、类别名、面板标题 */
+  --font-ui: 'LXGW Neo ZhiSong', 'Noto Serif CJK', 'Songti SC', serif;        /* 界面组·小字：按钮、选项、提示、列表里的刊名和标题 */
+  --font-title: 'Noto Serif CJK', 'Songti SC', serif;                         /* 文章组：文章大标题 */
+  --font-body: 'LXGW Neo ZhiSong', 'Noto Serif CJK', 'Songti SC', serif;      /* 文章组：正文、小标题、引用、图注 */
+  --font-mono: 'Mediarium Mono', 'Noto Sans CJK', ui-monospace, monospace;    /* 固定：等宽小标签，汉字用思源黑 350 */
+  --font-display: 'EB Garamond', serif;                                       /* 固定：刊头大日期 */
+
+  /* 版式 */
+  --gutter: 32px;          /* 页边距（手机） */
+  --nav-h: 64px;           /* 手机底栏高度 */
+  --rail-w: 88px;          /* 宽屏侧栏宽度 */
+  --read-max: 600px;       /* 正文栏最大宽度 */
+}
+
+@media (min-width: 720px) {
+  :root { --gutter: 40px; }
+}
+
+/* 脚本到位前，系统是深色就先用纸本的深色，免得闪一下白 */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-mode]) { --bg: #161615; --ink: #dbdbd5; --ink-body: #bebeb8; --ink-mid: #a19f95; --ink-faint: #65635a; --ink-ghost: #32302c; --rule: #282623; --accent: #b9a79e; --muted: #828077; --surface: #1f1e1c; --danger: #e17460; }
+}
+:root[data-mode="dark"] { color-scheme: dark; --scrim: rgba(0, 0, 0, 0.5); }

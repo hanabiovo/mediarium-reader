@@ -1,0 +1,135 @@
+/* 信息流（视觉稿「信息流 · 右滑已读」） */
+/* 筛选栏贴在收起后的刊头那一行下面，文章从下面滚过去 */
+.stream-tabs-wrap { position: sticky; top: var(--stream-bar-h, 0px); z-index: 4; background: var(--bg); margin-top: 10px; padding: 8px 0 6px; }
+.stream-tabs { margin: 0 var(--gutter); display: flex; gap: 28px; align-items: baseline; }
+.stream-tab { height: 32px; display: flex; align-items: baseline; gap: 6px; font-size: 14px; line-height: 1; color: var(--muted); }
+.stream-tab.on { color: var(--ink); }
+.stream-count { font-family: var(--font-mono); font-weight: 350; font-size: 10px; line-height: 1; color: var(--accent); }
+.stream-tab.muted { color: var(--accent); }   /* 长按「收藏」换出来的「不看的」 */
+
+/* 类别（0.28，草图：草图/信息流分类 草图 v1.html）：第一排下面一排，跟着贴顶，横着滑。
+   字签（A）：小一号字 + 符号 + 未读数，选中的字变深、下面一道强调色短线；没有未读的变淡，但不藏。
+   符号条（B，.symbols）：每个类别都配了符号、互不重复时用；只放符号，选中的才展开名字和数，有未读的右上角一个小方点 */
+.stream-cats {
+  margin-top: 2px; padding: 0 var(--gutter); display: flex; gap: 18px; overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid var(--rule);
+}
+.stream-cats::-webkit-scrollbar { display: none; }
+.stream-cat {
+  position: relative; flex: none; height: 30px; display: flex; align-items: center; gap: 5px;
+  font-family: var(--font-ui); font-size: 12px; letter-spacing: 0.04em; color: var(--muted); white-space: nowrap;
+}
+.stream-cat .stream-count { font-size: 9px; }
+.stream-cat.on { color: var(--ink); }
+.stream-cat.on::after { content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1.5px; background: var(--accent); }
+.stream-cat.zero, .stream-cat.zero .stream-count { color: var(--ink-faint); }
+.stream-cats.symbols { gap: 4px; padding: 0 calc(var(--gutter) - 8px); }
+.stream-cats.symbols .stream-cat { min-width: 32px; padding: 0 8px; justify-content: center; }
+.stream-cats.symbols .stream-cat:not(.on):not(.all) .stream-cat-name,
+.stream-cats.symbols .stream-cat:not(.on) .stream-count { display: none; }
+.stream-cat-dot { position: absolute; top: 6px; right: 5px; width: 4px; height: 4px; background: var(--accent); }
+.stream-cat.on .stream-cat-dot { display: none; }
+.stream-cats.symbols .stream-cat.on::after { left: 8px; right: 8px; }
+
+/* 来源名能点：去那本报刊 */
+.stream-source-link { cursor: pointer; align-self: flex-start; }
+@media (hover: hover) { .stream-source-link:hover { color: var(--ink); } }
+
+.stream-list { padding-top: 18px; display: flex; flex-direction: column; gap: 26px; }
+
+/* 时间轴：每天一组，日期栏吸顶。不用线（2026-10-20 Hana 定），天与天之间靠更大的留白分开。
+   这段留白放在日期栏自己的上方（--lead），吸顶时把它藏到屏幕上沿外面：
+   这样新的一天是紧贴着上一天被顶上去的，中间不会出现「旧日期悬在一片空白上」的空档。 */
+.stream-list:has(.stream-day) { gap: 0; }
+.stream-day { display: flex; flex-direction: column; gap: 26px; }
+.stream-day-bar {
+  --lead: 56px;
+  position: sticky; top: calc(var(--stream-top-h, 0px) - var(--lead) + 12px); z-index: 2; background: var(--bg);
+  margin: 0 var(--gutter); padding: var(--lead) 0 10px;
+}
+.stream-day:first-child .stream-day-bar { --lead: 12px; }
+.stream-day:last-child { padding-bottom: 26px; }
+.stream-day-bar + .stream-row { margin-top: -10px; }
+.stream-note { padding: 0 var(--gutter); }
+.stream-sentinel { height: 1px; }
+/* 到底以后的一屏空白（滚过即已读开着时）：最后一篇也能滚过顶栏 */
+.stream-end { min-height: calc(100dvh - var(--stream-top-h, 0px)); display: flex; align-items: center; justify-content: center; padding: 0 var(--gutter); color: var(--ink-faint); }
+
+.stream-row { position: relative; overflow: hidden; }
+.stream-item {
+  position: relative; display: grid; grid-template-columns: 64px minmax(0, 1fr); padding: 0 var(--gutter);
+  background: var(--bg); transition: transform 0.2s ease-out;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.stream-time { font-family: var(--font-mono); font-weight: 350; font-size: 9px; letter-spacing: 0.06em; padding-top: 4px; color: var(--accent); }
+.stream-text { display: flex; flex-direction: column; gap: 7px; }
+.stream-title { font-family: var(--font-ui); font-size: 15px; font-weight: 500; line-height: 1.7; letter-spacing: 0.02em; }
+.stream-source { font-family: var(--font-ui); font-weight: 400; font-size: 11px; color: var(--ink-mid); letter-spacing: 0.04em; }
+.stream-row.read .stream-time, .stream-row.read .stream-title { color: var(--ink-mid); }
+.stream-row.active .stream-title { color: var(--ink); }
+
+/* 滑动时露出来的字：没拖够是淡的，拖够了变成强调色 */
+.stream-hint {
+  position: absolute; top: 0; bottom: 0; display: flex; align-items: center;   /* 上下居中（0.28，原来贴在顶上） */
+  font-family: var(--font-mono); font-weight: 350; font-size: 9px; line-height: 1; letter-spacing: 0.16em;
+  color: var(--ink-faint);
+}
+.stream-hint.on { color: var(--accent); }
+.stream-hint.left { left: var(--gutter); }
+.stream-hint.right { right: var(--gutter); }
+
+/* 列表 + 文章：1024 以下一次只显示一页；以上点开文章时并排 */
+.reader-layout.has-article .list-pane { display: none; }
+.reader-layout:not(.has-article) .article-pane { display: none; }
+@media (min-width: 1024px) {
+  .reader-layout.has-article { display: grid; grid-template-columns: 380px minmax(0, 1fr); }
+  .reader-layout.has-article .list-pane {
+    display: block; position: sticky; top: 0; height: 100vh; overflow-y: auto; padding-bottom: 40px;
+  }
+  .reader-layout.has-article .list-pane { --gutter: 28px; }
+}
+
+/* 一键已读：长按「未读」后，数字往左藏到字后面，「未读」淡出换成「已读」 */
+.stream-tab-word { position: relative; z-index: 1; display: inline-grid; background: var(--bg); }
+.stream-tab-word > span { grid-area: 1 / 1; transition: opacity 0.2s ease; }
+.word-read { opacity: 0; }
+.stream-tab.arming .word-unread { opacity: 0; }
+.stream-tab.arming .word-read { opacity: 1; }
+.stream-tab .stream-count { position: relative; transition: opacity 0.24s ease, transform 0.24s ease; }
+.stream-tab.arming .stream-count { opacity: 0; transform: translateX(-1.8em); }
+.stream-tab { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+@media (prefers-reduced-motion: reduce) {
+  .stream-tab-word > span, .stream-tab .stream-count { transition: none; }
+}
+
+/* 卡片视图（视觉稿「卡片 B · 色块」）：不放图，比底色略浅的色块托出卡片 */
+.stream-day.cards { gap: 12px; }
+.stream-day.cards .stream-day-bar + .stream-row { margin-top: 0; }
+.stream-item.stream-card {
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 0 var(--gutter); padding: 16px 18px 18px; background: var(--surface);
+}
+.card-top { display: flex; justify-content: space-between; align-items: center; color: var(--ink-mid); }
+.card-top .stream-time { padding-top: 0; }
+.card-title { font-size: 16px; line-height: 1.65; }
+.stream-card .stream-source { align-self: flex-end; text-align: right; }   /* 信源放右下角，更好辨认（2026-10-20） */
+.card-summary {
+  font-family: var(--font-ui); font-size: 12px; line-height: 1.85; color: var(--ink-mid);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+
+/* 下拉刷新：顶栏不动，刊头和下面的东西带阻尼往下走；松手弹回 */
+.list-pane .masthead-wrap, .list-pane > :not(.page-header, .pull-bird) { transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.3, 1); }
+.list-pane.pulling .masthead-wrap, .list-pane.pulling > :not(.page-header, .pull-bird) { transition: none; }
+.list-pane.pulled .masthead-wrap, .list-pane.pulled > :not(.page-header, .pull-bird) { transform: translateY(var(--pull)); }
+.pull-turn { display: flex; }
+.pull-bird {
+  position: fixed; left: 0; right: 0; z-index: 4; height: 44px;
+  top: calc(44px + max(14px, env(safe-area-inset-top)));
+  display: flex; align-items: center; justify-content: center; color: var(--accent); pointer-events: none;
+}
+.pull-bird .bird { height: 26px; animation: bird-bob 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .list-pane .masthead-wrap, .list-pane > :not(.page-header, .pull-bird) { transition: none; }
+  .pull-bird .bird { animation: none; }
+}

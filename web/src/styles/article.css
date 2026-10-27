@@ -1,0 +1,137 @@
+/* 文章（视觉稿「文章」）：页面版式。正文排版在 src/typo/prose.css；字号、行距、字体由 src/typo/settings.ts 写进变量。 */
+/* 顶栏和正文一样宽：左返回；右边编号、收藏，收藏图标的右边对齐正文右边（日期那条线）。拉窗口时都不动（2026-10-20） */
+.art-bar { padding: 0 calc(var(--gutter) - 13px) 0 12px; }
+/* 顶栏贴顶（2026-10-21）：往下滚收窄一点，大标题滚出去后中间显出信源名 */
+.art-bar { position: sticky; top: 0; z-index: 4; background: var(--bg); margin-top: 0; padding-top: max(14px, env(safe-area-inset-top)); height: calc(44px + max(14px, env(safe-area-inset-top))); box-sizing: border-box; transition: padding-top 0.2s, height 0.2s; }
+.art-bar.stuck { padding-top: max(4px, env(safe-area-inset-top)); height: calc(44px + max(4px, env(safe-area-inset-top))); }
+.art-bar-name {
+  flex: 1; min-width: 0; padding: 0 12px; font-family: var(--font-ui); font-size: 13px; letter-spacing: 0.08em; color: var(--ink-mid);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity 0.2s;
+}
+.art-bar-name.on { opacity: 1; }
+.art-note { padding: 30px var(--gutter) 0; }
+.art-body { padding: 30px var(--gutter) 64px; font-variant-numeric: lining-nums; }
+.art-kicker { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+.art-tag { color: var(--accent); }
+.art-title {
+  margin-top: 18px; font-family: var(--font-title); font-size: 26px; font-weight: 700; font-synthesis-weight: none;   /* 大字：字体有真粗体就加粗，没有就不描粗，只靠字号（2026-10-21） */
+  line-height: 1.45; letter-spacing: 0.03em;
+}
+.art-source { margin-top: 14px; font-family: var(--font-body); font-weight: 400; font-size: 12px; color: var(--ink-mid); letter-spacing: 0.04em; }
+
+.art-audio { margin-top: 26px; }
+.art-audio-bar { min-height: 36px; width: 100%; display: flex; align-items: center; gap: 10px; color: var(--ink-mid); }
+.art-audio-toggle { margin-left: auto; }
+.art-audio audio { width: 100%; margin-top: 10px; }
+
+/* 正文的排版在 src/typo/prose.css（3d 排版模块）；这里只管它在页面上的位置 */
+.art-body .prose { margin-top: 30px; }
+
+/* 一行的字数跟着字号走：电脑上约 38 个字（中文最舒服的长度），手机按屏宽 */
+.article { --read-max: calc(var(--prose-size-d, 18px) * 38); }   /* 2026-10-21 放宽到 38 字 */
+
+@media (min-width: 720px) {
+  .art-body, .art-bar { max-width: calc(var(--read-max) + 2 * var(--gutter)); }
+}
+
+/* 宽屏右栏：顶上只留文字按钮（收藏；排版在 3e 加入），不要返回和编号 */
+@media (min-width: 1024px) {
+  .art-bar, .art-bar.stuck { padding: 30px 59px 0 56px; height: 74px; max-width: calc(var(--read-max) + 128px); }
+  .art-bar.stuck { padding-top: 10px; height: 54px; }
+  .art-bar-name { padding-left: 0; }
+  .art-back { display: none; }
+  .art-note { padding: 40px 72px 0 56px; }
+  .art-body { padding: 34px 72px 80px 56px; max-width: calc(var(--read-max) + 128px); }
+  .art-title { font-size: 30px; line-height: 1.38; letter-spacing: 0.06em; }
+}
+/* 打开原网页：低调，跟出处同色，悬停才显出是链接 */
+.art-origin { color: inherit; text-decoration: none; white-space: nowrap; }
+.art-origin:hover { color: var(--accent); }
+
+/* 顶栏右侧：Aa（排版设置）+ 收藏 */
+.art-tools { display: flex; align-items: center; gap: 4px; }
+.art-eye.off { color: var(--accent); }   /* 不爱看：眼睛闭上，强调色（0.28） */
+.art-aa span { font-family: var(--font-display); font-size: 19px; line-height: 1; letter-spacing: 0.02em; color: var(--ink); }
+
+/* 划词工具栏（阶段 5a）：选区下方（放不下就上方）浮出一条，和 toast 同一套深底浅字 */
+.selbar {
+  position: fixed; z-index: 55; transform: translateX(-50%); display: flex; gap: 2px; padding: 4px;
+  background: var(--ink); color: var(--bg); animation: toast-in 0.14s ease-out;
+}
+.selbar.above { transform: translate(-50%, -100%); }
+.selbar button { min-height: 36px; padding: 0 12px; font-size: 13px; letter-spacing: 0.08em; color: var(--bg); white-space: nowrap; }
+.selbar button:disabled { opacity: 0.4; }
+@media (hover: hover) { .selbar button:not(:disabled):hover { background: color-mix(in srgb, var(--bg) 14%, transparent); } }
+.card-preview { display: block; width: 100%; max-height: 52vh; object-fit: contain; object-position: center top; border: 1px solid var(--rule); }
+.selbar.docked { left: 50%; top: auto; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%); }
+.selbar.docked button { min-height: 44px; padding: 0 22px; font-size: 14px; }
+.art-title-orig { margin-top: 10px; font-family: var(--font-latin, var(--font-ui)); font-size: 15px; line-height: 1.5; color: var(--ink-mid); overflow-wrap: anywhere; }
+
+/* 翻译（阶段 4） */
+.art-tr span { font-family: var(--font-ui-display, var(--font-ui)); font-size: 17px; line-height: 1; color: var(--ink); }
+.art-tr.on span { color: var(--accent); }
+/* 译文段落：在原文下面，淡一点、左边一道细线（双语）；只看译文时原文藏起来，译文用正文样式 */
+.prose:not(.tr-bi):not(.tr-only) .prose-tr:not(.wait) { display: none; }
+/* 双语：译文是原文下面独立的一段，和原文之间留出半行；不缩进（左边有细线，缩进显得歪）（2026-10-22 Hana：贴得太近、像压在原文上） */
+.prose.tr-bi .prose-tr { color: var(--ink-mid); border-left: 2px solid var(--rule); padding-left: 0.9em; margin-top: 0.5em; text-indent: 0; }
+.prose.tr-bi .prose-tr-head { font-size: 0.92em; }
+.prose.tr-only [data-tr-has], .prose.tr-only .prose-orig { display: none; }
+.prose.tr-only .prose-tr { color: inherit; }
+.prose li > .prose-tr, .prose figcaption > .prose-tr, .prose td > .prose-tr, .prose th > .prose-tr { display: block; margin-top: 0.3em; }
+/* 点段落翻译：鼠标移上去的段落微微托起 */
+.prose.tr-pick :is(p, li, h2, h3, h4, blockquote, figcaption, .prose-run):not(.prose-tr):not([data-tr-has]) { cursor: pointer; }
+.prose.tr-pick :is(p, li, h2, h3, h4, blockquote, figcaption, .prose-run):not(.prose-tr):not([data-tr-has]):hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+/* 进度条贴在顶栏下面，滚到哪都看得见（2026-10-22 Hana：很难看见乌鸦，它原来在标题下面，一滚就没了） */
+.tr-progress { position: sticky; top: calc(44px + max(4px, env(safe-area-inset-top))); z-index: 3; background: var(--bg); display: flex; align-items: center; flex-wrap: wrap; gap: 6px 14px; margin: 18px 0 26px; padding: 8px 0; border-bottom: 1px solid var(--rule); font-size: 13px; color: var(--ink-mid); }
+@media (min-width: 1024px) { .tr-progress { top: 54px; } }
+/* 等译文的段落：原文下面先放一行淡色占位，译文到了就替换 */
+.prose .prose-tr.wait { color: var(--ink-faint) !important; display: block; animation: tr-wait 1.4s ease-in-out infinite; }
+@keyframes tr-wait { 50% { opacity: 0.35; } }
+.tr-progress .mono-label { margin-left: auto; }
+.tr-progress-bird { height: 22px; color: var(--accent); }
+.tr-progress:not(.fail) .tr-progress-bird { animation: tr-bob 1.6s ease-in-out infinite; }
+@keyframes tr-bob { 50% { transform: translateY(-2px); } }
+.tr-progress.fail { color: var(--danger); }
+.tr-progress-actions { display: flex; gap: 18px; align-items: baseline; width: 100%; padding-left: 36px; }
+.tr-progress-actions button { min-height: 32px; font-size: 13px; color: var(--ink); }
+.tr-progress-actions button:hover { color: var(--accent); }
+[data-theme="contrast"] .tr-progress-bird { animation: none !important; }
+.tr-piece-src { font-size: 13px; line-height: 1.7; color: var(--ink-mid); max-height: 30vh; overflow: auto; }
+.tr-piece-out { font-size: 15px; line-height: 1.8; margin: 14px 0 6px; }
+
+.tr-sheet-note { font-size: 11px; margin: -4px 0 6px; color: var(--ink-faint); }
+.tr-sheet-switch { margin-top: 10px; font-size: 15px; }
+
+/* 「重译」渠道列表（2026-10-23） */
+.tr-redo { list-style: none; display: flex; flex-direction: column; margin: -4px 0 8px; }
+.tr-redo-row { display: flex; align-items: center; gap: 16px; }
+.tr-redo-row + .tr-redo-row { border-top: 1px solid var(--rule); }
+.tr-redo-pick { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 0; min-height: 52px; text-align: left; }
+.tr-redo-pick:disabled { cursor: default; }
+.tr-redo-pick:disabled .tr-redo-name { color: var(--muted); }
+.tr-redo-row.on .tr-redo-pick:disabled .tr-redo-name { color: var(--ink); }
+.tr-redo-name { font-size: 15px; }
+.tr-redo-row.on { background: color-mix(in srgb, var(--ink) 7%, transparent); margin: 0 -12px; padding: 0 12px; }   /* 正在看的那份：浅底（原来是名字后面的「·」） */
+.tr-force { font-size: 13px; color: var(--ink-mid); white-space: nowrap; }
+.tr-force.on { color: var(--danger); }
+
+/* 看图（2026-10-23） */
+.prose img:not(.prose-small) { cursor: zoom-in; }
+.prose.tr-pick img { cursor: inherit; }
+.iv { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; color: #f2f0ea; touch-action: none; user-select: none; -webkit-user-select: none; }
+.iv-bar { position: absolute; top: 0; left: 0; right: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: calc(env(safe-area-inset-top) + 8px) 12px 8px; background: linear-gradient(rgba(0,0,0,.45), transparent); }
+.iv-count { color: rgba(242,240,234,.7); }
+.iv-acts { display: flex; gap: 4px; }
+.iv-btn { min-height: 44px; min-width: 44px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; color: inherit; font-size: 14px; letter-spacing: .1em; text-decoration: none; }
+.iv-btn:disabled { color: rgba(242,240,234,.45); }
+.iv-stage { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.iv-img { max-width: 100%; max-height: 100%; object-fit: contain; transform-origin: center; will-change: transform; -webkit-touch-callout: default; }
+.iv-img.anim { transition: transform .22s ease; }
+.iv-cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 24px 20px calc(env(safe-area-inset-bottom) + 16px); font-size: 13px; line-height: 1.7;
+  color: rgba(242,240,234,.85); background: linear-gradient(transparent, rgba(0,0,0,.55)); pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .iv-img.anim { transition: none; } }
+.art-empty { margin-top: 8px; }
+
+/* 社交平台只有标题的帖子（0.29.1）：一句话 + 打开原网页；0.29.5 起和「没拉到正文」一样，前面一只挠头的鸦 */
+.art-only-title .art-go { padding: 0; color: var(--accent); }

@@ -1,0 +1,110 @@
+/* 报刊架：封面视图 / 列表视图 */
+.shelf { padding: 44px var(--gutter) 0; display: flex; flex-direction: column; gap: 40px; }
+.shelf-section { display: flex; flex-direction: column; gap: 18px; }
+.shelf-section-head { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 32px; text-align: left; color: var(--ink); }
+.shelf-section-name { display: flex; align-items: center; gap: 9px; font-family: var(--font-ui-display); font-size: 15px; font-weight: 500; letter-spacing: 0.2em; }
+.shelf-section-name svg { flex: none; color: var(--ink-mid); }
+/* 折叠（0.29.2）：点类别名那一行收起 / 展开；右边一个小箭头，展开时朝下 */
+.shelf-fold { display: inline-block; margin-left: 10px; font-family: var(--font-ui); font-size: 13px; color: var(--ink-mid); transform: rotate(90deg); transition: transform 0.18s ease; }
+.shelf-section.folded .shelf-fold { transform: none; }
+.shelf-section.folded .shelf-section-name { color: var(--ink-mid); }
+@media (prefers-reduced-motion: reduce) { .shelf-fold { transition: none; } }
+
+/* 封面保持瘦高（5 : 7）：手机上一行几本随宽度自动增减，每本不会被拉宽变方（2026-10-20） */
+.covers { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 14px; }
+.cover {
+  aspect-ratio: 5 / 7; border: 1px solid var(--ink-ghost); padding: 10px 10px 9px;
+  display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+}
+.cover-top { flex: 1; display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; min-height: 0; }
+.cover-icon { color: var(--ink-mid); display: flex; flex-shrink: 0; }
+.cover-icon svg { width: 13px; height: 13px; }
+/* 竖排刊名：每段一列，段与段之间留 2px。字体用 --font-ui-vertical（书宋方案换成屏显臻宋，原因见 typo/fonts.ts） */
+.cover-title {
+  writing-mode: vertical-rl; font-family: var(--font-ui-vertical, var(--font-ui)); font-weight: 500; line-height: 1.45;
+  max-height: 100%; overflow: hidden; display: block; flex-shrink: 0;
+}
+.cover-part { display: block; }
+.cover-part + .cover-part { margin-block-start: 2px; }
+/* 刊名用小字（2026-10-21，参照灵犀）：字少了，书脊的留白才主导画面 */
+.cover-part { font-size: calc(13px * var(--fit, 1)); letter-spacing: 0.22em; }
+.cover-part.latin { font-size: calc(12px * var(--fit, 1)); letter-spacing: 0.06em; }
+.cover-latin { font-family: var(--font-mono); font-weight: 350; font-size: 7px; letter-spacing: 0.14em; line-height: 1.5; color: var(--ink-faint); text-transform: uppercase; }
+/* 封面底：别名靠左，多栏的「4 栏」靠右（阶段 6 第 3 步） */
+.cover-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; min-width: 0; }
+.cover-foot .cover-latin { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cover-cols { font-size: 7px; letter-spacing: 0.1em; color: var(--ink-faint); flex-shrink: 0; line-height: 1.5; }
+.shelf-row-sub { display: flex; align-items: baseline; gap: 0; }
+.shelf-row-sub .mono-label { font-size: 8px; letter-spacing: 0.12em; }
+/* 长按多栏报刊：栏目列表 */
+.sheet-col-list { display: flex; flex-direction: column; }
+.sheet-col { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; min-height: 40px; font-size: 14px; text-align: left; }
+.sheet-col + .sheet-col { border-top: 1px solid var(--rule); }
+
+.shelf-list { display: flex; flex-direction: column; gap: 24px; margin-top: 6px; }
+.shelf-row { display: grid; grid-template-columns: 40px 1fr; }
+.shelf-row-no { font-family: var(--font-mono); font-weight: 350; font-size: 9px; color: var(--ink-mid); padding-top: 5px; }
+.shelf-row-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.shelf-row-title { font-family: var(--font-ui); font-size: 14px; font-weight: 500; letter-spacing: 0.06em; }
+.shelf-row-latin { font-family: var(--font-mono); font-weight: 350; font-size: 8px; letter-spacing: 0.12em; color: var(--ink-mid); text-transform: uppercase; }
+
+/* 宽屏：封面固定宽度往右排，保持手机上的瘦高比例（约 5 : 7），不随窗口拉宽 */
+@media (min-width: 720px) {
+  .covers { grid-template-columns: repeat(auto-fill, 112px); gap: 16px; }
+  .cover { height: 157px; aspect-ratio: auto; }
+}
+
+
+/* 长按时「按下去」的样子（iPhone 没有震动，靠这个） */
+.cover, .shelf-row, .paper { transition: opacity 0.15s ease, transform 0.15s ease; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+.cover.pressing, .shelf-row.pressing, .paper.pressing { opacity: 0.55; transform: scale(0.98); }
+
+/* 空报刊架：一个空封面，鸟站在它上沿、头从右上角探出（鸟的去线版；封面边框接替原图的檐角） */
+.shelf-empty { display: flex; flex-direction: column; align-items: flex-start; gap: 22px; padding-top: 48px; }
+.shelf-empty-cover { position: relative; width: 112px; height: 157px; border: 1px solid var(--ink-ghost); }
+.shelf-empty-cover .bird { position: absolute; right: -2px; top: -25.3px; height: 32.4px; color: var(--accent); }
+
+/* 别名按文字排（3d）：含汉字的不用等宽大写，换正文字体、正体，字号字距另配 */
+.cover-latin.han, .shelf-row-latin.han { font-family: var(--font-ui); font-weight: 400; font-size: 10px; letter-spacing: 0.14em; text-transform: none; }
+.mono-label .alias.han, .mono-label.alias.han { font-family: var(--font-ui); font-weight: 400; font-size: 11px; letter-spacing: 0.14em; text-transform: none; }
+
+/* 报纸视图（3f）：每个信源一份头版，排成一面墙。线只留报纸语法非要不可的几道：报头上方一条、下方双线 */
+.papers { display: grid; grid-template-columns: repeat(auto-fill, minmax(146px, 1fr)); gap: 14px; }
+@media (min-width: 720px) { .papers { grid-template-columns: repeat(auto-fill, 196px); gap: 18px; } }
+.paper {
+  aspect-ratio: 3 / 4; background: var(--surface); border: 1px solid var(--ink-ghost); padding: 9px 10px 10px;
+  display: flex; flex-direction: column; overflow: hidden; color: var(--ink);
+}
+.paper-dateline {
+  display: flex; justify-content: space-between; gap: 6px; padding-bottom: 4px; border-bottom: 1px solid var(--ink);
+  font-family: var(--font-mono); font-weight: 350; font-size: 6.5px; letter-spacing: 0.12em; color: var(--ink-mid); white-space: nowrap; overflow: hidden;
+}
+.paper-dateline span:first-child { overflow: hidden; text-overflow: ellipsis; }
+.paper-mast {
+  margin: 6px 0 5px; font-family: var(--font-ui-display); font-weight: 700; font-synthesis-weight: none;
+  font-size: calc(24px * var(--fit, 1)); line-height: 1.15; letter-spacing: 0.04em; text-align: center; white-space: nowrap; overflow: hidden;
+}
+@media (min-width: 720px) { .paper-mast { font-size: calc(32px * var(--fit, 1)); } }
+.paper-motto {
+  padding: 3px 0; border-top: 3px double var(--ink); text-align: center; font-family: var(--font-mono); font-weight: 350;
+  font-size: 6.5px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-mid); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.paper-motto.han { font-family: var(--font-ui); font-size: 8px; text-transform: none; }
+/* 版面纹理：细灰条代表正文，浅色块代表图片位，粗条代表标题 */
+.paper-body { flex: 1; min-height: 0; margin-top: 6px; display: grid; gap: 6px; }
+.pg-text { background: repeating-linear-gradient(to bottom, var(--ink-ghost) 0 1.5px, transparent 1.5px 5px); min-height: 0; }
+.pg-head { background: repeating-linear-gradient(to bottom, var(--ink-faint) 0 4px, transparent 4px 9px); height: 13px; }
+.pg-img { background: var(--ink-ghost); min-height: 0; }
+.pg-drop { font-family: var(--font-ui-display); font-size: 22px; line-height: 1; color: var(--accent); display: flex; align-items: flex-start; }
+.paper-body.l0 { grid-template-columns: 3fr 2fr; grid-template-rows: 1fr 1fr; }
+.paper-body.l0 .pg-img { grid-row: 1; }
+.paper-body.l0 .pg-text.wide { grid-column: 1 / -1; }
+.paper-body.l1 { grid-template-columns: auto 1fr 1fr; grid-template-rows: auto 1fr; }
+.paper-body.l1 .pg-head { grid-column: 1 / -1; }
+.paper-body.l2 { grid-template-columns: 1fr 1fr 1fr; grid-template-rows: auto 1fr; }
+.paper-body.l2 .pg-head { grid-column: 1 / -1; }
+.paper-body.l3 { grid-template-columns: 1fr 1fr; grid-template-rows: 2fr auto 3fr; }
+.paper-body.l3 .pg-img, .paper-body.l3 .pg-head { grid-column: 1 / -1; }
+.shelf-empty-actions { display: flex; gap: 28px; margin-top: 14px; }
+.shelf-empty-actions button { min-height: 40px; font-size: 15px; letter-spacing: 0.14em; color: var(--ink); }
+.shelf-empty-actions button:hover { color: var(--accent); }

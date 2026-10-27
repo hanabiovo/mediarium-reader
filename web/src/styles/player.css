@@ -1,0 +1,65 @@
+/* 播放器（0.27，src/components/Player.tsx）：悬浮的小方块 / 展开的一条，和文章里的播放条共用按钮 */
+
+/* 悬浮：手机上不论哪一页都在同一个高度（底栏上面那么高），二级页面没底栏也不往下挪，免得挡住杂志目录的翻页条（0.27.2）；宽屏在右下角 */
+.pl-slot { position: fixed; z-index: 55; right: 16px; bottom: calc(var(--nav-h) + 12px + env(safe-area-inset-bottom)); }
+@media (min-width: 720px) { .pl-slot { right: 28px; bottom: 28px; } }
+
+.pl-float { background: var(--surface); color: var(--ink); border: 1px solid var(--rule); box-shadow: 0 6px 22px -12px rgb(0 0 0 / 0.35); }
+.pl-bubble {
+  position: relative; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
+  animation: pl-in 0.18s ease-out; overflow: hidden;
+}
+.pl-bubble.playing { color: var(--accent); }
+.pl-bubble-bar { position: absolute; left: 0; bottom: 0; height: 2px; background: var(--accent); transition: width 0.3s linear; }
+.pl-bar {
+  position: relative; width: min(360px, calc(100vw - 32px)); padding: 12px 14px 10px 16px;
+  display: flex; flex-direction: column; gap: 6px; animation: pl-in 0.18s ease-out;
+}
+@keyframes pl-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* 标题一行：点标题回到那一篇；关闭在最右，和下面的按钮隔开 */
+.pl-head { display: flex; align-items: flex-start; gap: 18px; }
+.pl-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; text-align: left; padding: 2px 0; }
+.pl-source { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-name { font-family: var(--font-title); font-size: 15px; line-height: 1.35; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-close { width: 32px; height: 32px; margin: -6px -8px 0 0; color: var(--ink-mid); flex: none; }
+.pl-fold { position: absolute; right: 6px; bottom: 6px; width: 36px; height: 36px; color: var(--ink-mid); }
+
+/* 按钮 + 进度 */
+.pl-controls { display: flex; flex-direction: column; gap: 4px; }
+.pl-row { display: flex; align-items: center; gap: 4px; min-height: 40px; }
+.pl-btn { display: flex; align-items: center; justify-content: center; min-width: 40px; height: 40px; color: var(--ink); }
+.pl-btn:disabled { opacity: 0.4; }
+.pl-skip, .pl-rate { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.04em; color: var(--ink-mid); }
+.pl-rate { min-width: 46px; }
+.pl-main { color: var(--accent); }
+.pl-time { margin-left: 8px; letter-spacing: 0.08em; white-space: nowrap; }
+.pl-bar .pl-row { padding-right: 34px; }   /* 给收起留位置 */
+.pl-start .pl-main { margin-left: -10px; }
+.art-audio .pl-controls, .art-audio .pl-start { margin-top: 6px; }
+.art-audio .pl-row > .pl-btn:first-child { margin-left: -10px; }
+
+/* 进度条：细线，走过的是强调色 */
+.pl-range {
+  -webkit-appearance: none; appearance: none; width: 100%; height: 20px; margin: 0; background: transparent; cursor: pointer;
+  --pl-track: linear-gradient(to right, var(--accent) var(--pl-at, 0%), var(--rule) var(--pl-at, 0%));
+}
+.pl-range:disabled { cursor: default; }
+.pl-range::-webkit-slider-runnable-track { height: 2px; background: var(--pl-track); }
+.pl-range::-moz-range-track { height: 2px; background: var(--pl-track); }
+.pl-range::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; margin-top: -4px; background: var(--accent); border: none; border-radius: 0; }
+.pl-range::-moz-range-thumb { width: 10px; height: 10px; background: var(--accent); border: none; border-radius: 0; }
+.pl-range:disabled::-webkit-slider-thumb { background: var(--ink-faint); }
+
+/* 节目单里的时间点（lib/stamps.ts）：等宽、强调色、统一宽度；以时间开头的段落不缩进，折行时和正文对齐 */
+.prose .prose-ts {
+  display: inline-block; width: var(--ts-w, 4em); text-align: left; text-indent: 0;
+  font-family: var(--font-mono); font-size: 0.88em; font-weight: 400; letter-spacing: 0; color: var(--accent); cursor: pointer;
+}
+.prose .prose-ts:hover { text-decoration: underline; text-underline-offset: 0.2em; }
+/* 悬挂：段落整体右移一个时间的宽度，时间再用负边距挂回行首（不靠首行缩进，排版模块给短段落的规则不会打架） */
+.prose .prose-tsline, .prose .prose-tslines, :root[data-indent="on"] .prose :is(p.prose-tsline, p.prose-tslines) { text-indent: 0 !important; text-align: left; }
+.prose .prose-tsline { padding-left: calc(var(--ts-w, 4em) * 0.88); }
+.prose .prose-tsline .prose-ts:first-of-type { margin-left: calc(var(--ts-w, 4em) * -1); }
+.prose .prose-tsline:has(+ .prose-tsline) { margin-bottom: 0.35em; }
+:root[data-indent="on"] .prose .prose-tsline + .prose-tsline { margin-top: 0.35em; }

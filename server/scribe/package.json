@@ -1,0 +1,11 @@
+{
+  "name": "mediarium-scribe",
+  "version": "0.9.2",
+  "private": true,
+  "description": "灵媒的誊写服务：替 Miniflux 先读原始的源、修好再交给它；给灵媒中转图片（导出、读像素）",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": { "start": "node src/index.js", "test": "node --test test/*.test.js" },
+  "dependencies": { "cheerio": "1.0.0", "undici": "6.29.1" },
+  "engines": { "node": ">=22" }
+}
