@@ -364,3 +364,10 @@ input[type="checkbox"]:focus-visible { outline: 1px solid var(--accent); outline
 .savelog-retry { flex: none; margin-left: auto; color: var(--bg); text-decoration: underline; text-underline-offset: 3px; font-size: 13px; }
 @keyframes savelog-pulse { 50% { opacity: 0.55; } }
 @media (prefers-reduced-motion: reduce) { .savelog-line.step span { animation: none; } }
+
+/* 接入 AI 助手（MCP，2026-10-27）：每日巡诊有新情况时，设置行标题后面一个小红点；说明列表；新链接下面那行「认证方式选无」的小字 */
+.set-dot { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--accent); vertical-align: 0.15em; }
+button.set-row:disabled { opacity: 0.5; cursor: default; }
+.mcp-list { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+.mcp-list b { font-weight: 600; color: var(--ink); }
+.mcp-auth-note { grid-column: 1 / -1; margin: 4px 0 0; font-size: 12px; color: var(--ink-mid); }

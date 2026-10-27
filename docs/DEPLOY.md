@@ -87,6 +87,7 @@ sudo certbot --nginx -d 你的域名
 - **邀请朋友**：用管理员账号登录 `https://你的域名/miniflux/`，在 设置 › API Keys 新建一把密钥，填进 `.env` 的 `SCRIBE_ADMIN_KEY`，然后 `docker compose up -d scribe`。之后在灵媒「设置 › 管理」里就能生成邀请链接。
 - **需要账号的 RSSHub 路由**（小红书、Instagram 等）：cookie 填进 `.env`，并把配置名写进 `HUB_CONFIGURED`，例如 `HUB_CONFIGURED=XIAOHONGSHU_COOKIE`。建议用小号。
 - **抓取代理**：有的网站会拦机房 IP。可以在 `.env` 里填 `FETCH_PROXY`，然后在源的设置里勾「通过代理抓取」。
+- **接入 AI 助手（MCP）**：不用额外配置（需要 `SCRIBE_SECRET`，Nginx 用 `deploy/nginx/mediarium.conf` 里的 `/scribe/mcp/` 那一段）。每个人在灵媒「设置 › 接入 AI 助手」生成自己的专属链接，填进支持 MCP 的客户端。端点是 `https://你的域名/scribe/mcp/<链接里的随机串>`：Streamable HTTP、无状态、只接受 POST，不走 OAuth（添加时认证方式选「无」）。链接分只读和可管理订阅两档，只能碰自己的账号；开了链接的账号，服务器每天巡一遍信源。
 
 ## 更新
 

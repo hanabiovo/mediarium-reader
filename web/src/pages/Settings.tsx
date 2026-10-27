@@ -4,7 +4,7 @@
 //   翻译（阶段 4）、源管家（阶段 5）先留栏位
 //   账户、关于
 import { useEffect, useRef, useState } from 'react'
-import { Link, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { api, logout, myKeyId, type ApiKey } from '../api/miniflux'
 import { clock, monthDay } from '../lib/day'
 import { DISCOVER_LINKS } from '../lib/sources'
@@ -17,6 +17,8 @@ import { crowOn, setCrowOn, LINES } from '../lib/crow'
 import { Bird } from '../components/Bird'
 import { depthOf } from '../hooks/useDeepNav'
 import { Block, SubPage } from './settings/frame'
+import { Mcp } from './settings/Mcp'
+import { useNewAlerts } from '../lib/mcp'
 import { Doctor } from './settings/Doctor'
 import { Translate } from './settings/Translate'
 import { Admin } from './settings/Admin'
@@ -40,11 +42,11 @@ function useDeeper() {
   return { ...(state as object ?? {}), depth: depthOf(state) + 1, root: '/settings' }
 }
 
-function Row({ to, title, note, soon }: { to?: string; title: string; note?: string; soon?: string }) {
+function Row({ to, title, note, soon, dot }: { to?: string; title: string; note?: string; soon?: string; dot?: boolean }) {
   const state = useDeeper()
   const body = (
     <>
-      <span className="set-row-title">{title}</span>
+      <span className="set-row-title">{title}{dot && <span className="set-dot" aria-label="有新情况" />}</span>
       {note && <span className="set-row-note">{note}</span>}
       {soon ? <span className="mono-label">{soon}</span> : <span className="set-row-go" aria-hidden="true">›</span>}
     </>
@@ -60,14 +62,16 @@ function Home() {
   const themeName = THEMES.find((t) => t.id === theme.theme)?.label ?? theme.custom?.name ?? ''
   const uiName = UI_PRESETS.find((u) => u.id === typo.ui)?.label
   const modeName = { auto: '跟随系统', light: '浅色', dark: '深色' }[theme.mode]
+  const alerts = useNewAlerts()
   return (
     <>
       <PageHeader title="设置" subtitle="Preferences" lead={<EggLogo size={40} />} leadLine={`V${__APP_VERSION__}`} />
       <div className="page-body set-home">
         <div className="set-list">
           <Row to="/settings/appearance" title="外观" note={`${themeName} · ${modeName} · 界面${uiName}`} />
-          <Row to="/settings/sources" title="信源" note="报刊管理、添加、检查、搬家" />
+          <Row to="/settings/sources" title="信源" note="报刊管理、添加、检查、搬家" dot={alerts > 0} />
           <Row to="/settings/translate" title="翻译" note="引擎、密钥、用量" />
+          <Row to="/settings/mcp" title="接入 AI 助手" note="MCP · 读文章、找源、管订阅" />
           <Row to="/settings/account" title="账户" />
           <Row to="/settings/about" title="关于" note={`V${__APP_VERSION__}`} />
         </div>
@@ -131,6 +135,7 @@ function Fonts() {
 
 function Sources() {
   const file = useRef<HTMLInputElement>(null)
+  const alerts = useNewAlerts()
   const exportOpml = async () => {
     try {
       const xml = await api.exportOpml()
@@ -145,7 +150,7 @@ function Sources() {
       <div className="set-list">
         <Row to="/shelf/manage" title="报刊管理" note="分类、报刊、栏目" />
         <Row to="/settings/sources/add" title="添加信源" note="贴网址或输站点名，体检后推荐" />
-        <Row to="/settings/sources/doctor" title="检查信源" note="报错、久不更新、摘要、重复" />
+        <Row to="/settings/sources/doctor" title="检查信源" note={alerts > 0 ? `每日巡诊发现 ${alerts} 个新情况` : '报错、久不更新、摘要、重复'} dot={alerts > 0} />
       </div>
       <Block title="搬家">
         <div className="set-list">
@@ -283,6 +288,8 @@ export function Settings({ onLogout }: { onLogout: () => void }) {
       <Route path="sources/site/:id" element={<SitePage />} />
       <Route path="sources/doctor" element={<Doctor />} />
       <Route path="translate" element={<Translate />} />
+      <Route path="mcp" element={<Mcp />} />
+      <Route path="claude" element={<Navigate to="/settings/mcp" replace />} />
       <Route path="account" element={<Account onLogout={onLogout} />} />
       <Route path="admin" element={<Admin />} />
       <Route path="about" element={<About />} />

@@ -17,6 +17,7 @@ import {
 } from '../../lib/doctor'
 import { sourceOf, usePapers } from '../../lib/papers'
 import { Block, SubPage } from './frame'
+import { markAlertsSeen } from '../../lib/mcp'
 
 const ORDER: Issue['kind'][] = ['error', 'exam', 'summary', 'duplicate', 'stale', 'paused']
 const rank = (w: Ward) => Math.min(...w.issues.map((i) => ORDER.indexOf(i.kind)))
@@ -142,6 +143,7 @@ function Case({ ward, label, feeds, onDone, exam, onExam }: { ward: Ward; label:
 
 export function Doctor() {
   const papers = usePapers()   // 标「报刊 · 栏目」（阶段 6 第 3 步）
+  useEffect(() => { markAlertsSeen() }, [])   // 看过源医生：每日巡诊的小红点收起
   const { data } = useShelf()
   const [round, setRound] = useState<Round | null>(() => { const r = cachedRound(); return r && Date.now() - r.at < 10 * 60 * 1000 ? r : null })
   const [running, setRunning] = useState(false)

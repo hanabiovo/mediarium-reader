@@ -25,13 +25,13 @@ export const FIXED_PRESETS = [
 ]
 const DEFAULTS = () => ({ mode: 'mt', mt: 'volcano', ai: 'deepseek', titleAi: false, presets: [], keys: {}, usage: {} })
 
-function seal(text) {
+export function seal(text) {
   const iv = randomBytes(12)
   const c = createCipheriv('aes-256-gcm', master, iv)
   const body = Buffer.concat([c.update(text, 'utf8'), c.final()])
   return [iv, c.getAuthTag(), body].map((b) => b.toString('base64')).join('.')
 }
-function open(blob) {
+export function open(blob) {
   const [iv, tag, body] = blob.split('.').map((s) => Buffer.from(s, 'base64'))
   const d = createDecipheriv('aes-256-gcm', master, iv)
   d.setAuthTag(tag)

@@ -10,6 +10,9 @@
 //   /invite/check、/invite/accept    公开：朋友拿邀请链接查码、自己注册（5d，见 invites.js）
 //   GET /hub/info、/hub/search?q=、/hub/site?id=（或 ?route=）、/hub/match?url=   本站 RSSHub（「灵媒自建」）的开关与路由目录（阶段 6，见 hub.js）。要登录密钥
 //   GET /hub/wrap?url=灵媒自建上的地址   给 Miniflux 订的地址：/scribe/feed?url=…&s=签名（0.7，见 feed 一节）。要登录密钥
+//   /mcp/links                       接入 AI 助手（MCP）的专属链接：列出、生成、作废（2026-10-27，见 links.js）。要登录密钥
+//   POST /mcp/<专属链接里那串字>      MCP 本体（见 mcp.js）：AI 助手以这个人的身份看订阅、找源、读文章、看源医生；管理档还能增删改订阅
+//   GET /doctor/alerts               每日巡诊的结果（只有开了 MCP 链接的账号有，见 patrol.js）。要登录密钥
 //   GET /health                     活着没
 // 安全护栏见 guard.js：只取 http(s)、不碰内网地址、有超时和大小上限。
 import http from 'node:http'
@@ -25,6 +28,9 @@ import { CHUNK, ChannelError, builtinOn, listModels, setBuiltin } from './channe
 import { HUB, HUB_CONFIGURED, getIndex, hubOn, matchUrl, nestedIds, searchSites, siteDetail, siteOfPath } from './hub.js'
 import { onHub, sigOk, signFeed } from './sign.js'
 import { acceptInvite, checkInvite, createInvite, inviteOn, listInvites, revokeInvite, tooMany } from './invites.js'
+import { createLink, keysByUser, linksOn, listLinks, resolveLink, revokeLink } from './links.js'
+import { handleRpc } from './mcp.js'
+import { dailyPatrol, readReport } from './patrol.js'
 
 const PORT = Number(process.env.PORT || 8011)
 const MINIFLUX = (process.env.MINIFLUX_URL || 'http://mediarium-miniflux:8080').replace(/\/$/, '')
@@ -302,6 +308,41 @@ async function hub(req, res, route, q) {
   } catch (e) { log('hub', route, e?.message); json(res, e.status ?? 502, { error: e.status === 400 || e.status === 404 ? e.message : 'RSSHub 没回话，稍后再试' }) }
 }
 
+// ——— 接入 AI 助手（MCP，2026-10-27）———
+async function mcpLinks(req, res, user, q) {
+  const token = String(req.headers['x-auth-token'] || '')
+  if (req.method === 'GET') return json(res, 200, { on: linksOn(), links: await listLinks(user.id) })
+  if (req.method === 'POST') {
+    const b = await readJson(req, 1024)
+    try { return json(res, 200, await createLink(user.id, token, b.scope === 'manage' ? 'manage' : 'read')) }
+    catch (e) { return json(res, e.status ?? 502, { error: e.message }) }
+  }
+  if (req.method === 'DELETE') return json(res, 200, { ok: await revokeLink(user.id, q.get('id') ?? '') })
+  send(res, 405, 'method?')
+}
+// MCP 端点：只认 POST（无状态，不开 SSE）。路径里那串字对不上一律 404，不透露有没有这条链接
+// 日志只记请求方式、调了什么、回了什么，不记链接（链接就是密钥）；用来排查 AI 助手连不上（2026-10-27）
+async function mcp(req, res, secret) {
+  const link = await resolveLink(secret)
+  const ua = String(req.headers['user-agent'] || '').slice(0, 40)
+  if (!link) { log('mcp', req.method, 'no-link', ua); return send(res, 404, 'not found') }
+  if (req.method !== 'POST') { log('mcp', req.method, '405', link.id, ua); return send(res, 405, 'POST only', { allow: 'POST' }) }
+  let body
+  try { body = await readJson(req, 256 * 1024) } catch (e) { log('mcp', 'bad json', link.id); return json(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: e.message } }) }
+  const what = (Array.isArray(body) ? body : [body]).map((m) => m?.method === 'tools/call' ? `call:${m.params?.name}` : m?.method).join(',')
+  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim()
+  const origin = `${proto === 'http' ? 'http' : 'https'}://${String(req.headers.host || '')}`
+  const out = await handleRpc(body, { ...link, origin, signKey: SIGN_KEY, log })
+  log('mcp', 'POST', what, out.status, link.id, ua)
+  if (!out.body) { res.writeHead(202); return res.end() }
+  json(res, out.status, out.body)
+}
+
+// 每日巡诊：启动 10 分钟后巡一次，之后每 24 小时一次
+const patrolNow = () => dailyPatrol(keysByUser, log).catch((e) => log('patrol', e?.message))
+setTimeout(patrolNow, 10 * 60 * 1000).unref()
+setInterval(patrolNow, 24 * 60 * 60 * 1000).unref()
+
 // 每小时清一次缓存：超过上限就从最久没用的删起
 async function prune() {
   try {
@@ -344,6 +385,12 @@ http.createServer(async (req, res) => {
       return send(res, 404, 'not found')
     }
     if (route === '/invite/check' || route === '/invite/accept') return await invite(req, res, route)
+    if (route === '/mcp/links') {
+      const user = await validToken(String(req.headers['x-auth-token'] || ''))
+      if (!user) return send(res, 401, 'login?')
+      return await mcpLinks(req, res, user, u.searchParams)
+    }
+    if (route.startsWith('/mcp/')) return await mcp(req, res, route.slice(5))
     if (req.method !== 'GET') return send(res, 405, 'GET only')
     if (route === '/health') return send(res, 200, 'ok')
     // 自查：能不能问通 Miniflux（不带密钥问 /me，应得 401；不露任何信息）
@@ -351,6 +398,11 @@ http.createServer(async (req, res) => {
     if (route === '/feed') return await feed(req, res, u.searchParams)
     if (route === '/img') return await img(req, res, u.searchParams)
     if (route === '/doctor/check') return await doctor(req, res, u.searchParams)
+    if (route === '/doctor/alerts') {
+      const user = await validToken(String(req.headers['x-auth-token'] || ''))
+      if (!user) return send(res, 401, 'login?')
+      return json(res, 200, (await readReport(user.id)) ?? { at: null, issues: [] })
+    }
     if (route.startsWith('/hub/')) {
       if (!(await validToken(String(req.headers['x-auth-token'] || '')))) return send(res, 401, 'login?')
       return await hub(req, res, route, u.searchParams)
