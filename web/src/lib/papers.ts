@@ -2,7 +2,8 @@
 // 归档规则（计划与说明/阶段6 报刊与RSSHub.md「自动归档」）：
 //   1. 灵媒设置里记过的（添加信源时存的 papers / feeds.paper）以它为准；
 //   2. RSSHub 的源按路由第一段（命名空间）归，官方 RSS 按网站域名归（catalog.paperOf）；
-//   3. 例外：公众号、平台类（B 站、微博、GitHub……）一个账号一本，没记过的不自动并；
+//   3. 例外：公众号、平台类（B 站、微博、GitHub、播客平台……）一个账号一本，不自动并；
+//      从站点页订的，归属记成了平台站点（youtube、xiaoyuzhou）也照样一个账号一本（0.29.10）；
 //   4. 不跨分类自动并：Hana 手动分过类的，一律尊重。
 // 只有一栏的报刊和原来一模一样：名字就是源名，不显示栏目这一层。
 // 这里只是「怎么看」，不碰 Miniflux 的订阅；拆报刊、合报刊在报刊管理页（第 4 步）
@@ -25,12 +26,15 @@ export type Paper = {
 }
 
 // 平台类：一个账号一本，不按站点 / 域名自动并
-const PLATFORM_NS = new Set(['bilibili', 'weibo', 'github', 'youtube', 'twitter', 'x', 'instagram', 'telegram', 'xiaohongshu', 'douyin', 'zhihu', 'douban', 'pixiv', 'mastodon', 'jike', 'wechat', 'wechat2rss', 'substack', 'medium', 'tiktok', 'threads', 'bsky', 'v2ex'])
-const PLATFORM_HOST = /(^|\.)(mp\.weixin\.qq\.com|weixin\.qq\.com|bilibili\.com|weibo\.com|weibo\.cn|github\.com|youtube\.com|twitter\.com|x\.com|medium\.com|zhihu\.com|douban\.com|xiaohongshu\.com|substack\.com|feedburner\.com|wechat2rss\.[\w.]+|feeds\.[\w.]+)$/i
+const PLATFORM_NS = new Set(['bilibili', 'weibo', 'github', 'youtube', 'twitter', 'x', 'instagram', 'telegram', 'xiaohongshu', 'douyin', 'zhihu', 'douban', 'pixiv', 'mastodon', 'jike', 'wechat', 'wechat2rss', 'substack', 'medium', 'tiktok', 'threads', 'bsky', 'v2ex',
+  // 播客平台（0.29.10）：一档节目一本
+  'xiaoyuzhou', 'ximalaya', 'lizhi', 'qingting', 'apple', 'spotify'])
+const PLATFORM_HOST = /(^|\.)(mp\.weixin\.qq\.com|weixin\.qq\.com|bilibili\.com|weibo\.com|weibo\.cn|github\.com|youtube\.com|twitter\.com|x\.com|medium\.com|zhihu\.com|douban\.com|xiaohongshu\.com|substack\.com|feedburner\.com|xiaoyuzhoufm\.com|xyzfm\.space|ximalaya\.com|lizhi\.fm|qingting\.fm|podcasts\.apple\.com|spotify\.com|anchor\.fm|wechat2rss\.[\w.]+|feeds\.[\w.]+)$/i
 
 export const isPlatformHost = (host: string) => !host || PLATFORM_HOST.test(host)
 export function autoKey(m: Meta, f: Feed): string {
-  if (m.feeds[f.id]?.paper) return m.feeds[f.id]!.paper!
+  const saved = m.feeds[f.id]?.paper
+  if (saved) return PLATFORM_NS.has(saved) ? 'f:' + f.id : saved   // 记成平台站点的：一个账号一本
   const k = paperOf(m, f)
   const route = rsshubRoute(f.feed_url)
   if (route ? PLATFORM_NS.has(k) : PLATFORM_HOST.test(k.slice(2)) || k === 'd:') return 'f:' + f.id
@@ -94,7 +98,7 @@ export function buildPapers(data: ShelfData, m: Meta): Paper[] {
     const lead = feeds[0]
     const saved = m.papers?.[key]
     const single = feeds.length === 1
-    const name = single ? lead.title : saved?.name || commonHead(feeds.map((f) => f.title)) || shortTitle(lead.title)
+    const name = single ? accountName(m, lead) : saved?.name || commonHead(feeds.map((f) => f.title)) || shortTitle(lead.title)
     const latin = (single ? feedLatin(m, lead.id) : '') || saved?.latin || feedLatin(m, lead.id)
     const site = saved?.site ?? (key.startsWith('d:') || key.startsWith('f:') ? undefined : key)
     const columns = columnsOf(m, feeds, name)
@@ -105,6 +109,15 @@ export function buildPapers(data: ShelfData, m: Meta): Paper[] {
   }
   // 报刊在分类里按刊名排；分类照原来的顺序（无类别最后）
   return orderedCategories(m, data.categories).flatMap((c) => (byCat.get(c.id) ?? []).sort((a, b) => byName(a.name, b.name)).map((p) => ({ ...p, category: c })))
+}
+
+// 平台上的一个账号单独成本时的名字：去掉前面的平台名（「小宇宙 · 别的电波」→「别的电波」）
+function accountName(m: Meta, f: Feed): string {
+  const site = m.feeds[f.id]?.paper
+  const head = site && PLATFORM_NS.has(site) ? m.papers?.[site]?.name?.trim() : ''
+  if (!head || !f.title.startsWith(head) || f.title.length <= head.length) return f.title
+  const rest = f.title.slice(head.length)
+  return /^[\s\-—–·:：|｜_/]/.test(rest) ? rest.replace(/^[\s\-—–·:：|｜_/]+/, '').trim() || f.title : f.title
 }
 
 export type PaperIndex = { papers: Paper[]; byFeed: Map<number, Paper> }
@@ -126,7 +139,7 @@ export function sourceOf(idx: PaperIndex, feedId: number, fallback = ''): { pape
   const p = idx.byFeed.get(feedId)
   if (!p) return { paper: fallback, column: '', label: fallback }
   const column = p.columns.get(feedId) ?? ''
-  if (!column) { const t = p.feeds.find((f) => f.id === feedId)?.title ?? fallback; return { paper: t, column: '', label: t } }
+  if (!column) { const t = p.feeds.length === 1 ? p.name : p.feeds.find((f) => f.id === feedId)?.title ?? fallback; return { paper: t, column: '', label: t } }
   return { paper: p.name, column, label: `${p.name} · ${column}` }
 }
 // 报刊在本分类里的编号（封面上的 NO.）：按报刊数，不按源数
