@@ -1,7 +1,7 @@
 {
   "name": "mediarium-web",
   "private": true,
-  "version": "0.30.3",
+  "version": "0.30.5",
   "type": "module",
   "scripts": {
     "dev": "vite",

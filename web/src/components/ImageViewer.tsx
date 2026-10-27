@@ -4,6 +4,10 @@
 //   · 顶上：关闭、「2 / 5」、保存（手机弹系统分享菜单，里面有「存储图像」；电脑直接下载）、图本身带链接时「打开链接」
 //   · 底下：图注
 //   · 整页的缩放是关掉的（lib/zoom.ts），这里的缩放是自己算的
+// 0.30.4（2026-10-27 Hana：看图时老是误划退出整篇文章，伸手去点关闭又麻烦）：
+//   · 打开时在历史里垫一格（同 Sheet）：系统返回手势、返回键只关看图，回到文章
+//   · 点图外的空白处立刻关；点图本身仍等一下看是不是双击
+//   · 下滑关的门槛放低，快速往下一甩也算；首尾两张再往外划有阻力
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { fetchImage } from '../lib/scribe'
@@ -35,6 +39,22 @@ export function ImageViewer({ images, start, onClose }: { images: ViewImage[]; s
   const lastTap = useRef(0)
   const tapTimer = useRef<number | undefined>(undefined)
   const img = images[at]
+  const imgEl = useRef<HTMLImageElement>(null)
+
+  // 返回手势 / 返回键先关看图（做法同 components/Sheet.tsx）
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+  useEffect(() => {
+    const id = Math.random().toString(36).slice(2)
+    window.history.pushState({ ...(window.history.state ?? {}), mViewer: id }, '')
+    const onPop = () => { if (window.history.state?.mViewer !== id) closeRef.current() }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      // 用按钮、点空白、下滑关时自己退掉这一格；晚一拍再看，开发模式下效果跑两遍时不误退
+      window.setTimeout(() => { if (window.history.state?.mViewer === id) window.history.back() }, 0)
+    }
+  }, [])
 
   // 打开时：页面别跟着滚；Esc 关，左右键换图
   useEffect(() => {
@@ -46,8 +66,10 @@ export function ImageViewer({ images, start, onClose }: { images: ViewImage[]; s
       if (e.key === 'ArrowRight') go(1)
     }
     window.addEventListener('keydown', key)
-    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', key); window.clearTimeout(tapTimer.current) }
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', key) }
   }) // eslint-disable-line react-hooks/exhaustive-deps
+  // 单击关的计时器只在关掉看图时清（原来放在上面那段里，每次重绘都清，点图本身就永远关不掉）
+  useEffect(() => () => window.clearTimeout(tapTimer.current), [])
 
   const reset = () => setZ({ s: 1, x: 0, y: 0 })
   const go = (d: number) => {
@@ -93,7 +115,10 @@ export function ImageViewer({ images, start, onClose }: { images: ViewImage[]; s
     const dx = e.clientX - st.sx, dy = e.clientY - st.sy
     if (Math.abs(dx) + Math.abs(dy) > 6) st.moved = true
     if (z.s > 1) setZ((v) => ({ ...v, x: st.x0! + dx, y: st.y0! + dy }))
-    else setDrag(Math.abs(dx) > Math.abs(dy) ? { x: dx, y: 0 } : { x: 0, y: Math.max(0, dy) })
+    else if (Math.abs(dx) > Math.abs(dy)) {
+      const edge = (dx > 0 && at === 0) || (dx < 0 && at === images.length - 1)
+      setDrag({ x: edge ? dx / 3 : dx, y: 0 })   // 第一张往右、最后一张往左：拉不动多少
+    } else setDrag({ x: 0, y: Math.max(0, dy) })
   }
   const up = (e: React.PointerEvent) => {
     if (!pts.current.has(e.pointerId)) return
@@ -109,11 +134,20 @@ export function ImageViewer({ images, start, onClose }: { images: ViewImage[]; s
     setAnim(true)
     if (z.s > 1) return
     // 没放大：滑动换图 / 下滑关 / 点按
-    if (drag.y > 110) { onClose(); return }
+    const fast = Date.now() - st.t < 260
+    if (drag.y > 80 || (fast && drag.y > 30)) { onClose(); return }
     if (drag.x < -60) go(1)
     else if (drag.x > 60) go(-1)
     setDrag({ x: 0, y: 0 })
-    if (!st.moved && Date.now() - st.t < 300) tap(e.clientX, e.clientY)
+    if (!st.moved && Date.now() - st.t < 300) {
+      if (outside(e.clientX, e.clientY)) { window.clearTimeout(tapTimer.current); onClose(); return }
+      tap(e.clientX, e.clientY)
+    }
+  }
+  // 点在图外的空白处
+  const outside = (cx: number, cy: number) => {
+    const r = imgEl.current?.getBoundingClientRect()
+    return !r || cx < r.left || cx > r.right || cy < r.top || cy > r.bottom
   }
   // 单击关；双击放大 / 还原
   const tap = (cx: number, cy: number) => {
@@ -145,7 +179,7 @@ export function ImageViewer({ images, start, onClose }: { images: ViewImage[]; s
   const fade = Math.max(0.35, 1 - drag.y / 400)
   return createPortal(
     <div className="iv" role="dialog" aria-modal="true" aria-label="看图" style={{ background: `rgba(0,0,0,${fade})` }}>
-      <div className="iv-bar">
+      <div className="iv-bar" onClick={(e) => { if (!(e.target as HTMLElement).closest('button, a')) onClose() }}>
         <button className="iv-btn" aria-label="关闭" onClick={onClose}>✕</button>
         <span className="iv-count mono-label">{images.length > 1 ? `${at + 1} / ${images.length}` : ''}</span>
         <span className="iv-acts">
@@ -154,7 +188,7 @@ export function ImageViewer({ images, start, onClose }: { images: ViewImage[]; s
         </span>
       </div>
       <div ref={box} className="iv-stage" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onWheel={wheel}>
-        <img key={img.src} src={img.src} alt={img.caption} draggable={false} className={anim ? 'iv-img anim' : 'iv-img'}
+        <img ref={imgEl} key={img.src} src={img.src} alt={img.caption} draggable={false} className={anim ? 'iv-img anim' : 'iv-img'}
           style={{ transform: `translate(${z.x + drag.x}px, ${z.y + drag.y}px) scale(${z.s * (drag.y ? 1 - drag.y / 1200 : 1)})` }} />
       </div>
       {img.caption && z.s === 1 && <p className="iv-cap">{img.caption}</p>}

@@ -1,6 +1,6 @@
 {
   "name": "mediarium-scribe",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "private": true,
   "description": "灵媒的誊写服务：替 Miniflux 先读原始的源、修好再交给它；给灵媒中转图片（导出、读像素）",
   "type": "module",

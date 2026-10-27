@@ -24,7 +24,8 @@ export function useEdgeSwipeBack(enabled: boolean) {
     const onStart = (e: TouchEvent) => {
       popped = false
       const t = e.touches[0]
-      tracking = t.clientX <= EDGE
+      // 看图时不管：那里左右划是换图，返回由历史里垫的那一格处理（components/ImageViewer.tsx）
+      tracking = t.clientX <= EDGE && !(e.target as Element | null)?.closest?.('.iv')
       startX = t.clientX; startY = t.clientY
     }
     const onEnd = (e: TouchEvent) => {

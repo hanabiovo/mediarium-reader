@@ -1,5 +1,6 @@
 // 添加 / 编辑信源（视觉稿「报刊架 · 列表视图与编辑」里的编辑面板）。
 // 字段：刊名、别名、分类（可当场新建）、选项（抓取全文 / 暂停更新 / 不进信息流）；编辑时显示地址，左下角「移除」。
+// 多栏报刊里的一栏只有栏目名和选项：刊名、别名、类别属于整份报刊（0.30.5，2026-10-27 Hana 定）。
 // 添加时先填地址找订阅源（网页地址也行，Miniflux 会自己去页面里找 RSS）。
 // 改动：Miniflux 自己有的字段写回 Miniflux；别名写进灵媒设置（数据字段仍叫 latin）（见 api/meta.ts）。
 // 5b-3 接诊：查找之后每个候选都交给源医生体检（RSSHub 路由会在几台实例上各试一次），自动选推荐的那个；
@@ -13,6 +14,7 @@ import { IconPick } from './IconPick'
 import { checkup, checkupAround, onHub, original, recommend, routeOn, rsshubRoute, showUrl, usable, verdictLine, type Checkup } from '../lib/doctor'
 import { ensureHub, feedUrlFor, hubBase } from '../lib/hub'
 import { usePapers } from '../lib/papers'
+import { feedTitle } from '../lib/subscribe'
 import { categoryName, feedLatin, orderedCategories, updateMeta, useMeta } from '../api/meta'
 import { Sheet } from './Sheet'
 import { aliasClass } from '../lib/title'
@@ -177,7 +179,9 @@ export function FeedEditor({ mode, feed, no, categories, anchor, initialUrl, inl
         if (title.trim() && title.trim() !== discoveredTitle) await api.updateFeed(id, { title: title.trim() })
       } else {
         id = feed!.id
-        await api.updateFeed(id, { title: title.trim() || feed!.title, category_id: category, ...opts })
+        // 多栏报刊里的一栏：源名跟着栏目名写成「刊名 · 栏目」（同 lib/paperOps.ts 的 renameColumn）
+        const colTitle = multi && column.trim() && column.trim() !== column0 ? feedTitle(paper!.name, column.trim(), false) : ''
+        await api.updateFeed(id, { title: colTitle || title.trim() || feed!.title, category_id: category, ...opts })
       }
       const latinChanged = latinTouched && latin.trim() !== (mode === 'edit' ? feedLatin(meta, id) : '')
       const trChanged = trTitle !== (mode === 'edit' ? trTitleOn(meta, id) : false)
@@ -261,20 +265,23 @@ export function FeedEditor({ mode, feed, no, categories, anchor, initialUrl, inl
 
         {ready && (
           <>
-            <label className="sheet-label" htmlFor="fe-title">刊名</label>
-            <input id="fe-title" className="form-input serif strong" value={title}
-              placeholder={mode === 'add' ? '留空就用刊物自己的名字' : undefined} onChange={(e) => setTitle(e.target.value)} />
-
-            {multi && (
+            {/* 多栏报刊里的一栏：刊名、别名、类别都属于整份报刊（2026-10-27 Hana 定），这里只留栏目名；在长按报刊的面板里改 */}
+            {multi ? (
               <>
                 <label className="sheet-label" htmlFor="fe-column">栏目名</label>
-                <input id="fe-column" className="form-input serif" value={column} placeholder={`在「${paper!.name}」里叫什么`} onChange={(e) => setColumn(e.target.value)} />
+                <input id="fe-column" className="form-input serif strong" value={column} placeholder={`在「${paper!.name}」里叫什么`} onChange={(e) => setColumn(e.target.value)} />
+              </>
+            ) : (
+              <>
+                <label className="sheet-label" htmlFor="fe-title">刊名</label>
+                <input id="fe-title" className="form-input serif strong" value={title}
+                  placeholder={mode === 'add' ? '留空就用刊物自己的名字' : undefined} onChange={(e) => setTitle(e.target.value)} />
+
+                <label className="sheet-label" htmlFor="fe-latin">别名</label>
+                <input id="fe-latin" className={aliasClass('form-input mono faint', latin)} value={latin} autoCorrect="off"
+                  placeholder="可不填" onChange={(e) => { setLatin(e.target.value); setLatinTouched(true) }} />
               </>
             )}
-
-            <label className="sheet-label" htmlFor="fe-latin">别名</label>
-            <input id="fe-latin" className={aliasClass('form-input mono faint', latin)} value={latin} autoCorrect="off"
-              placeholder="可不填" onChange={(e) => { setLatin(e.target.value); setLatinTouched(true) }} />
 
             {/* 多栏报刊里的一栏没有类别：类别是整份报刊的（2026-10-24 Hana），在长按报刊的面板里换 */}
             {!multi && (
