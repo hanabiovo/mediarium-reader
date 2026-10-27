@@ -80,6 +80,9 @@
 .doc-issue, .doc-exam { font-size: 12px; line-height: 1.7; color: var(--ink-mid); display: flex; flex-direction: column; }
 .doc-issue.bad { color: var(--danger); }
 .doc-exam { color: var(--ink); }
+/* AI 判定忽略的（0.30.6）：一行理由 + 撤销 */
+.doc-ignore { font-size: 12px; line-height: 1.7; color: var(--ink-mid); }
+.doc-ignore .form-text-btn { margin-left: 8px; font-size: 12px; }
 .doc-rx { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 4px; }
 .doc-rx button, .doc-hosts button { min-height: 32px; font-size: 13px; color: var(--ink); }
 .doc-rx button:hover, .doc-hosts button:hover { color: var(--accent); }

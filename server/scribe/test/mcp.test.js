@@ -262,6 +262,39 @@ test('报刊：退订一栏，只剩一栏时源名回到刊名', async () => {
   assert.equal(meta0().feeds['103'].paper, 'cctv')
 })
 
+test('排障：AI 判定、只忽略某种报错、藏起来的照样列出、撤销', async () => {
+  const miss = await call(manageLink, 'triage_source', { feed_id: 3, verdict: '只是偶尔超时', ignore: { kind: 'error', match: 'Client.Timeout' } })
+  assert.match(miss.text, /忽略「报错」（只忽略报错原文里含「Client.Timeout」的），到 /)
+  let h = await call(readLink, 'source_health')
+  assert.match(h.text, /#3 .*抓取连续出错 3 次/)            // 503 不含 Client.Timeout，照样报
+  await call(manageLink, 'triage_source', { feed_id: 3, verdict: '对方服务器常年 503 一阵就好', ignore: { kind: 'error', match: '503', days: 999 } })
+  const rule = meta0().feeds['3'].ignore.error
+  assert.equal(rule.match, '503')
+  assert.ok(Date.parse(rule.until) - Date.now() < 181 * 864e5)   // 最多 180 天
+  h = await call(readLink, 'source_health')
+  assert.doesNotMatch(h.text.split('藏起来的')[0], /#3 .*抓取连续出错|status 503/)
+  assert.match(h.text, /藏起来的[\s\S]*#3 .*抓取连续出错 3 次（AI 判定忽略：对方服务器常年 503 一阵就好）/)
+  const one = await call(readLink, 'source_health', { feed_id: 3 })
+  assert.match(one.text, /忽略规则：忽略「报错」/)
+  assert.match(meta0().feeds['3'].notes[0].what, /^AI 助手：判定：对方服务器常年 503/)
+  const bad = await call(manageLink, 'triage_source', { feed_id: 3, verdict: 'x', ignore: { kind: 'stale', match: 'y' } })
+  assert.ok(bad.error)
+  await call(manageLink, 'triage_source', { feed_id: 3, verdict: '对方修好了', unignore: 'error' })
+  assert.equal(meta0().feeds['3'].ignore, undefined)
+})
+
+test('源医生：点了「它没事」的也列出来；带朗读音频的长文不算播客', async () => {
+  const m = meta0(); m.feeds['3'] = { ...m.feeds['3'], fine: { error: new Date().toISOString() } }
+  state.stylesheet = state.stylesheet.replace(/\/\* mediarium-meta:.*:mediarium-meta \*\//s, `/* mediarium-meta:${JSON.stringify(m)}:mediarium-meta */`)
+  const h = await call(readLink, 'source_health')
+  assert.match(h.text, /#3 .*抓取连续出错 3 次（用户 .* 点了「它没事」，6 小时内不提）/)
+  const long = '<p>' + '长'.repeat(3000) + '</p>'
+  for (const i of [1, 2, 3]) state.entries.push({ id: 900 + i, feed_id: 1, title: '长文 ' + i, url: 'https://m.thepaper.cn/' + i, published_at: day(i), status: 'read', starred: false, content: long, enclosures: [{ mime_type: 'audio/mpeg' }] })
+  const one = await call(readLink, 'source_health', { feed_id: 1 })
+  assert.doesNotMatch(one.text, /视频\/播客源/)
+  assert.match(one.text, /平均 3000 字/)
+})
+
 test('退订：先试算不删，确认了才删', async () => {
   const before = state.deleted.length
   const dry = await call(manageLink, 'unsubscribe', { feed_id: 2 })

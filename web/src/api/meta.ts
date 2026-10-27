@@ -10,7 +10,7 @@ import type { Palette } from '../theme/themes'
 export type Meta = {
   v: 1
   uncategorized?: number   // 当作「无类别」的那个 Miniflux 分类的 id
-  feeds: Record<string, { latin?: string; notes?: { t: string; what: string }[]; trTitle?: boolean; paper?: string; column?: string; fine?: Record<string, string> }>   // fine：源医生里点过「它没事」的（毛病种类 → 点的时间，6 小时内有效）   // notes：源医生的病历（5b-3）；paper / column：属于哪份报刊、栏目名（阶段 6）
+  feeds: Record<string, { latin?: string; notes?: { t: string; what: string }[]; trTitle?: boolean; paper?: string; column?: string; fine?: Record<string, string>; ignore?: Record<string, IgnoreRule>; added?: string }>   // fine：源医生里点过「它没事」的（毛病种类 → 点的时间，6 小时内有效）   // notes：源医生的病历（5b-3）；paper / column：属于哪份报刊、栏目名（阶段 6）
   // 报刊（阶段 6）：键 = 站点 id（RSSHub 命名空间，如 thepaper）或 d:域名（目录里没有的站点）
   papers?: Record<string, { name: string; latin?: string; site?: string; domain?: string }>
   categories: Record<string, { latin?: string; icon?: string }>
@@ -20,6 +20,8 @@ export type Meta = {
   muted?: Record<string, Mark>
 }
 export type Mark = { f: number; t: number }
+// AI 判定的忽略规则（MCP 的 triage_source 写，2026-10-27）：源医生不再为这类问题提醒，到 until 自动恢复；match 只忽略报错原文里含这段字的
+export type IgnoreRule = { why: string; at: string; until?: string; match?: string; by?: string }
 type UserCss = { id: number; stylesheet: string }
 export type SavedTheme = { id: string; name: string; light: Palette; dark: Palette }
 

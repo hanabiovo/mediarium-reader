@@ -13,7 +13,7 @@ import { toast, toastError } from '../../components/Toast'
 import { clock, monthDay } from '../../lib/day'
 import {
   cachedRound, changeFeedUrl, retarget, checkup, markFine, notesOf, original, patrol, hideEntries, routeOn, rsshubRoute, showUrl, instanceLabel, usable,
-  verdictLine, writeNote, type Checkup, type Issue, type Round, type Ward,
+  verdictLine, writeNote, activeRules, unignore, IGNORE_NAME, type Checkup, type Issue, type Round, type Ward,
 } from '../../lib/doctor'
 import { sourceOf, usePapers } from '../../lib/papers'
 import { Block, SubPage } from './frame'
@@ -92,6 +92,12 @@ function Case({ ward, label, feeds, onDone, exam, onExam }: { ward: Ward; label:
     toast({ text: '好，6 小时内不提它。', bird: 'rest' })
   })
   const replace = () => navigate('/settings/sources/add', { state: { ...(state as object ?? {}), depth: depthOf(state) + 1, root: '/settings', addUrl: feed.site_url || original(feed.feed_url) } })
+  // AI 判定忽略的（MCP 的 triage_source 写，2026-10-27）：写明理由、到哪天，随时撤销；撤销后下一轮巡诊照常提醒
+  const rules = activeRules(meta, feed.id)
+  const undo = (kind: string) => run('undo', async () => {
+    await unignore(feed.id, kind)
+    toast('撤销了，下次检查照常提醒。')
+  })
 
   return (
     <li className="doc-case">
@@ -103,6 +109,12 @@ function Case({ ward, label, feeds, onDone, exam, onExam }: { ward: Ward; label:
         </span>
       ))}
       {exam && <span className="doc-exam">{exam === 'busy' ? '体检中…' : exam === null ? '体检不了' : `体检：${verdictLine(exam)}`}</span>}
+      {rules.map(([kind, r]) => (
+        <span key={kind} className="doc-ignore">
+          AI 判定：{r.why}。不提醒「{IGNORE_NAME[kind] ?? kind}」{r.match ? `（只限报错里含「${r.match}」的）` : ''}{r.until ? `，到 ${monthDay(new Date(r.until))}` : ''}
+          <button className="form-text-btn" onClick={() => undo(kind)} disabled={!!busy}>撤销</button>
+        </span>
+      ))}
 
       <div className="doc-rx">
         {has('error') && <button onClick={refetch} disabled={!!busy}>{busy === 'refetch' ? '抓取中…' : '重新抓取'}</button>}
@@ -143,6 +155,7 @@ function Case({ ward, label, feeds, onDone, exam, onExam }: { ward: Ward; label:
 
 export function Doctor() {
   const papers = usePapers()   // 标「报刊 · 栏目」（阶段 6 第 3 步）
+  const meta = useMeta()
   useEffect(() => { markAlertsSeen() }, [])   // 看过源医生：每日巡诊的小红点收起
   const { data } = useShelf()
   const [round, setRound] = useState<Round | null>(() => { const r = cachedRound(); return r && Date.now() - r.at < 10 * 60 * 1000 ? r : null })
@@ -189,7 +202,8 @@ export function Doctor() {
   }
   const all = (round?.wards ?? []).map(fresh)
   const sick = all.filter((w) => w.issues.length).sort((a, b) => rank(a) - rank(b))
-  const well = all.filter((w) => !w.issues.length)
+  const ruled = all.filter((w) => !w.issues.length && activeRules(meta, w.feed.id).length)
+  const well = all.filter((w) => !w.issues.length && !ruled.includes(w))
   const doneCount = Object.values(exams).filter((e) => e !== 'busy' && e !== undefined).length
 
   return (
@@ -207,6 +221,11 @@ export function Doctor() {
       {sick.length > 0 && (
         <Block title="要看看">
           <ul className="doc-list">{sick.map((w) => <Case key={w.feed.id} ward={w} label={sourceOf(papers, w.feed.id, w.feed.title).label} feeds={data.feeds} onDone={done(w.feed.id)} exam={exams[w.feed.id]} onExam={setExam(w.feed.id)} />)}</ul>
+        </Block>
+      )}
+      {ruled.length > 0 && (
+        <Block title="AI 判定没事">
+          <ul className="doc-list">{ruled.map((w) => <Case key={w.feed.id} ward={w} label={sourceOf(papers, w.feed.id, w.feed.title).label} feeds={data.feeds} onDone={done(w.feed.id)} exam={exams[w.feed.id]} onExam={setExam(w.feed.id)} />)}</ul>
         </Block>
       )}
       {well.length > 0 && (

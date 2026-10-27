@@ -6,12 +6,12 @@ import { proxyOn } from './guard.js'
 import { HUB, HUB_CONFIGURED, getIndex, hubOn, matchUrl, nestedIds, searchSites, siteDetail } from './hub.js'
 import { htmlToMarkdown, sections } from './markdown.js'
 import { mf, MfError } from './mfclient.js'
-import { examineFeed, patrolUser, readReport } from './patrol.js'
+import { IGNORABLE, examineFeed, ignoreRule, patrolUser, readReport } from './patrol.js'
 import { signFeed } from './sign.js'
 import { readMeta, updateMeta, withNote } from './usermeta.js'
 import { RSSHUB_PUBLIC, buildPapers, categoryName, commonHead, feedTitle, isPlatformHost, isPlatformSite, paperByFeed, remember, rsshubRoute, shortColumn, shortTitle, siteOfRoute, uncategorizedId } from './papers.js'
 
-const VERSION = '1.1.0'
+const VERSION = '1.2.0'
 const PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05']
 const HUB_LABEL = '灵媒自建'
 const INSTRUCTIONS = `这是「灵媒」（一个自部署的 RSS 阅读器）的工具，以当前用户的身份办事，只能碰这个用户自己的订阅和文章。
@@ -25,7 +25,11 @@ const INSTRUCTIONS = `这是「灵媒」（一个自部署的 RSS 阅读器）�
   · 用户的口味：list_subscriptions 带 stats 看某本报刊或某个类别近 30 天读了多少、收藏、划掉了多少。
 - 添加、修改、退订会改用户的订阅：先把要做的事（刊名、栏目名、类别、选项）列给用户确认，再调用。退订会连同这个源的文章（包括收藏）一起删掉，unsubscribe 先不带 confirm 调一次看清楚，再请用户确认；想留着文章可以改成暂停更新或不进信息流。
 - 用户的习惯（类别、是否翻译标题）可以从 list_subscriptions 里看出来，添加时照着建议默认值；抓取全文以体检结果为准。
-- 源出问题：source_health 看原始材料，check_source 现场体检，refresh_source 让 Miniflux 立刻重抓一次。`
+- 源医生排障（用户看到报警来问，或 list_subscriptions 末尾提示有源要看看时）：用户一般看不懂报错，判断交给你。
+  · source_health 看原始材料（报错原文、最近几篇、病历；用户点了「它没事」或已经忽略的也列出来），check_source 现场体检。
+  · 可以直接做、不用先问（都能撤回，做完告诉用户）：refresh_source 重抓；update_source 换 RSSHub 实例（同一条路由换成 hub:/ 灵媒自建，先体检过）、开关抓取全文、开关绕道；triage_source 写判定，老毛病（YouTube、小宇宙偶尔超时、协会博客几个月一更）可以忽略某一类问题。
+  · 要先问用户：退订、换成别的网站、改报刊结构、暂停更新。
+  · list_subscriptions 里的「报错×N」是 Miniflux 的原始计数；Miniflux 会一直按时重试，偶发的报错下一轮多半自己清零。`
 
 // ——— 小工具 ———
 const DAY = 864e5
@@ -107,6 +111,17 @@ async function feedsAndCats(key) {
   return { feeds: feeds ?? [], cats: cats ?? [] }
 }
 const findCat = (cats, name) => cats.find((c) => c.title.trim().toLowerCase() === String(name).trim().toLowerCase())
+
+// ——— 源医生：藏起来的问题、AI 的忽略规则 ———
+const KIND_NAME = { error: '报错', stale: '久不更新', summary: '像是摘要', muted: '不爱看', paused: '暂停' }
+// 时间按北京时间写（灵媒的用户在中文时区；服务器是 UTC）
+const hm = (iso) => (iso ? new Date(iso).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false, month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '')
+function ruleText(kind, r) {
+  return `忽略「${KIND_NAME[kind] ?? kind}」${r.match ? `（只忽略报错原文里含「${r.match}」的）` : ''}${r.until ? `，到 ${day(r.until)}` : ''}；理由：${r.why}（${day(r.at)} 定）`
+}
+function quietOf(w) {
+  return (w.quiet ?? []).map((q) => q.why === 'fine' ? `${q.text}（用户 ${hm(q.at)} 点了「它没事」，6 小时内不提）` : `${q.text}（AI 判定忽略：${q.rule.why}）`)
+}
 
 // ——— 报刊（papers.js）———
 // RSSHub 目录（认带斜杠的站点 id 用）：取不到或太慢就不等，归刊照样能做，只是那几个站点按第一段认
@@ -289,8 +304,8 @@ const TOOLS = [
         stats: { type: 'boolean', description: '附上近 30 天的阅读情况（要和 category 或 feed_id 一起用）' },
       },
     },
-    run: async ({ key }, a) => {
-      const sh = await shelf(key)
+    run: async ({ key, uid }, a) => {
+      const [sh, report] = await Promise.all([shelf(key), readReport(uid)])
       let papers = sh.papers
       if (a.feed_id) { const p = paperByFeed(papers, intArg(a.feed_id, 'feed_id')); if (!p) throw new UserError(`没有 #${a.feed_id} 这个源`); papers = [p] }
       if (a.category) { const n = String(a.category).trim().toLowerCase(); papers = papers.filter((p) => catTitle(sh, p.category).toLowerCase() === n) }
@@ -320,6 +335,15 @@ const TOOLS = [
         }
       }
       if (!papers.length) out.push('没有符合的。')
+      // 源医生报警：每日巡诊记下的问题（现在已经忽略、源已经退订的不算）
+      if (report && !a.feed_id && !a.category) {
+        const alarms = (report.issues ?? []).filter((i) => {
+          const f = sh.feeds.find((x) => x.id === i.feed)
+          return f && !ignoreRule(sh.meta, i.feed, { kind: i.kind, detail: f.parsing_error_message })
+        })
+        const n = new Set(alarms.map((i) => i.feed)).size
+        out.push('', n ? `源医生（每日巡诊 ${hm(report.at)}）：${n} 个源要看看，用 source_health 看详情、帮用户排障。` : `源医生（每日巡诊 ${hm(report.at)}）：都好。`)
+      }
       return out.join('\n')
     },
   },
@@ -438,7 +462,7 @@ const TOOLS = [
       if (a.feed_id) {
         const id = intArg(a.feed_id, 'feed_id')
         const [feed, meta] = await Promise.all([mf(key, `/feeds/${id}`), readMeta(key)])
-        const { facts, issues } = await examineFeed(key, feed, meta)
+        const { facts, issues, quiet: wardQuiet } = await examineFeed(key, feed, meta)
         const lines = [`#${facts.id} ${facts.title}（${facts.category ?? ''}）`, `订阅地址：${plainUrl(feed.feed_url)}`, `网站：${feed.site_url}`,
           `设置：${[facts.crawler && '抓取全文', facts.proxy && '绕道', facts.paused && '暂停'].filter(Boolean).join('、') || '默认'}`,
           `Miniflux：上次检查 ${facts.checkedAt ?? '?'}；连续出错 ${facts.errors} 次${facts.errorMessage ? `；报错原文：${facts.errorMessage}` : ''}`,
@@ -446,6 +470,9 @@ const TOOLS = [
         if (facts.recent?.length) lines.push('最近几篇：', ...facts.recent.map((r) => `  - ${day(r.published)} ${r.title}（${r.chars} 字）`))
         if (facts.muted30d) lines.push(`近 30 天划掉「不爱看」${facts.muted30d} 篇${facts.entries30d ? `，这段时间共 ${facts.entries30d} 篇` : ''}`)
         lines.push(issues.length ? `规则判出的问题：${issues.map((i) => i.text).join('；')}` : '规则判出的问题：没有')
+        for (const q of quietOf({ facts, quiet: wardQuiet })) lines.push(`藏起来的：${q}`)
+        const rules = Object.entries(meta.feeds?.[id]?.ignore ?? {})
+        if (rules.length) lines.push(...rules.map(([k, r]) => `忽略规则：${ruleText(k, r)}`))
         if (facts.notes?.length) lines.push('病历：', ...facts.notes.map((n) => `  - ${day(n.t)} ${n.what}`))
         return lines.join('\n')
       }
@@ -455,7 +482,12 @@ const TOOLS = [
       const out = [`巡了 ${round.total} 个源，${sick.length} 个要看看。${report ? `（每日巡诊上次在 ${report.at.slice(0, 16).replace('T', ' ')}）` : ''}`]
       for (const w of sick) {
         out.push(`- #${w.facts.id} ${w.facts.title}：${w.issues.map((i) => { const s = since.get(`${w.facts.id}|${i.kind}`); return i.text + (s ? `（${day(s)} 起）` : '') }).join('；')}`)
-        if (w.facts.errorMessage) out.push(`  报错原文：${w.facts.errorMessage}`)
+        if (w.facts.errorMessage && w.issues.some((i) => i.kind === 'error')) out.push(`  报错原文：${w.facts.errorMessage}`)
+      }
+      const hidden = round.wards.filter((w) => w.quiet?.length)
+      if (hidden.length) {
+        out.push('', '藏起来的（网页端源医生也不显示；list_subscriptions 里的「报错×N」是 Miniflux 的原始计数，照样会显示）：')
+        for (const w of hidden) out.push(`- #${w.facts.id} ${w.facts.title}：${quietOf(w).join('；')}`)
       }
       return out.join('\n')
     },
@@ -633,7 +665,7 @@ const TOOLS = [
   },
   {
     name: 'update_source', scope: 'manage',
-    description: '修改一个已订的源（会改用户的订阅：先和用户确认）。每个源都能改：抓取全文、绕道、不进信息流、暂停、翻译标题，或换订阅地址（比如换 RSSHub 实例、换成 hub:/路由）。多栏报刊里的一栏还能改栏目名（column），但不能改类别、刊名、别名——这三样属于整本报刊，用 update_paper。只有一栏的报刊，这里也能改类别、刊名（title）、别名。改动会记进源医生的病历。',
+    description: '修改一个已订的源。排障时换 RSSHub 实例、开关抓取全文、开关绕道可以直接做（做完告诉用户）；别的改动先和用户确认。每个源都能改：抓取全文、绕道、不进信息流、暂停、翻译标题，或换订阅地址（比如换 RSSHub 实例、换成 hub:/路由）。多栏报刊里的一栏还能改栏目名（column），但不能改类别、刊名、别名——这三样属于整本报刊，用 update_paper。只有一栏的报刊，这里也能改类别、刊名（title）、别名。改动会记进源医生的病历。',
     inputSchema: {
       type: 'object',
       properties: {
@@ -697,6 +729,55 @@ const TOOLS = [
       const did = await editPaper(key, sh, p, { category: a.category, name: a.name, alias: a.alias })
       if (!did.length) return `《${p.name}》没有要改的（或者和现在一样）。`
       return `《${p.name}》${p.feeds.length > 1 ? `（${p.feeds.length} 栏）` : ''}：${did.join('，')}。`
+    },
+  },
+  {
+    name: 'triage_source', scope: 'manage',
+    description: '源医生排障：给一个源下判定，写进病历；必要时让源医生忽略这个源的某一类问题（网页端源医生和每日巡诊都会遵守，用户在网页上能看到判定、随时撤销）。适合「源没坏，只是老毛病」：比如 YouTube、小宇宙这类偶尔超时、偶尔 404 但第二天就好的，协会博客本来就几个月一更。ignore.match 只对报错有用：报错原文里含这段字才忽略（比如只忽略「Client.Timeout」，别的报错照样报）。ignore.days 默认 30、最多 180，到期自动恢复提醒。unignore 撤销某一类的忽略。判定前先 source_health / check_source 看清楚；源真坏了就修（refresh_source、update_source 换实例或开抓取全文），修不好、要换别的网站或退订的，先问用户。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        feed_id: { type: 'number' },
+        verdict: { type: 'string', description: '判定结论，一两句，写进病历给用户看' },
+        ignore: {
+          type: 'object',
+          properties: {
+            kind: { type: 'string', enum: IGNORABLE, description: 'error 报错、stale 久不更新、summary 像是摘要、muted 不爱看' },
+            match: { type: 'string', description: '只忽略报错原文里含这段字的（kind 为 error 时用）' },
+            days: { type: 'number', description: '忽略多少天，默认 30，最多 180' },
+          },
+          required: ['kind'],
+        },
+        unignore: { type: 'string', enum: IGNORABLE, description: '撤销这一类的忽略' },
+      },
+      required: ['feed_id', 'verdict'],
+    },
+    run: async ({ key }, a) => {
+      const id = intArg(a.feed_id, 'feed_id')
+      const verdict = String(need(a.verdict, 'verdict')).trim().slice(0, 300)
+      const feed = await mf(key, `/feeds/${id}`)
+      let did = `判定：${verdict}`
+      let rule = null
+      if (a.ignore) {
+        const kind = String(a.ignore.kind ?? '')
+        if (!IGNORABLE.includes(kind)) throw new UserError(`ignore.kind 只能是 ${IGNORABLE.join('、')}`)
+        const days = Math.min(180, Math.max(1, Math.round(Number(a.ignore.days) || 30)))
+        const match = a.ignore.match ? String(a.ignore.match).trim().slice(0, 120) : undefined
+        if (match && kind !== 'error') throw new UserError('match 只对 error（报错）有用')
+        rule = { kind, r: { why: verdict, at: new Date().toISOString(), until: new Date(Date.now() + days * DAY).toISOString(), ...(match ? { match } : {}), by: 'ai' } }
+        did += `；${ruleText(kind, rule.r)}`
+      }
+      if (a.unignore && !IGNORABLE.includes(a.unignore)) throw new UserError(`unignore 只能是 ${IGNORABLE.join('、')}`)
+      if (a.unignore) did += `；撤销忽略「${KIND_NAME[a.unignore]}」`
+      await updateMeta(key, (m) => {
+        const cur = { ...(m.feeds?.[id]?.ignore ?? {}) }
+        if (a.unignore) delete cur[a.unignore]
+        if (rule) cur[rule.kind] = rule.r
+        const next = withNote(m, id, `AI 助手：${did}`)
+        next.feeds[id] = { ...next.feeds[id], ignore: Object.keys(cur).length ? cur : undefined }
+        return next
+      })
+      return `#${id} ${feed.title}：${did}。已记进病历${rule ? '，源医生和每日巡诊会照这条规则不再提醒，用户在网页端源医生里能看到、能撤销' : ''}。`
     },
   },
   {

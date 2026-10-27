@@ -6,7 +6,7 @@
 // 全是规则，不用 AI：量得出来的东西不猜。
 import { api, getToken, request, type Entry, type Feed } from '../api/miniflux'
 import { mutedRecently } from './attention'
-import { currentMeta, updateMeta, visible, type Meta } from '../api/meta'
+import { currentMeta, updateMeta, visible, type IgnoreRule, type Meta } from '../api/meta'
 import { guessHost } from './sources'
 import { HUB_LABEL, feedUrlFor, hubBase } from './hub'
 
@@ -164,6 +164,25 @@ export function staleAfter(gaps: number[]): number {
 }
 // 「它没事」（2026-10-24 Hana）：点一次，这个源的这几样提醒收起 6 小时，到时间自动回来重新判断。
 // 只看时间：误点了，下回来看它又在（Hana：判定已经够合理，误判再出现再讨论）
+// AI 判定的忽略规则（同 server/scribe/src/patrol.js 的 ignoreRule）：到期的不算；match 只对报错有用
+export const IGNORE_NAME: Record<string, string> = { error: '报错', stale: '久不更新', summary: '像是摘要', muted: '不爱看' }
+export function ignoreRule(meta: Meta, feedId: number, issue: Issue): IgnoreRule | null {
+  const r = meta.feeds[feedId]?.ignore?.[issue.kind]
+  if (!r || (r.until && Date.parse(r.until) < Date.now())) return null
+  if (r.match && issue.kind === 'error' && !(issue.detail ?? '').toLowerCase().includes(r.match.toLowerCase())) return null
+  return r
+}
+export const activeRules = (meta: Meta, feedId: number): [string, IgnoreRule][] =>
+  Object.entries(meta.feeds[feedId]?.ignore ?? {}).filter(([, r]) => !r.until || Date.parse(r.until) >= Date.now())
+export async function unignore(feedId: number, kind: string) {
+  await updateMeta((m) => {
+    const cur = { ...(m.feeds[feedId]?.ignore ?? {}) }
+    delete cur[kind]
+    const note = { t: new Date().toISOString(), what: `撤销 AI 的忽略：${IGNORE_NAME[kind] ?? kind}` }
+    return { ...m, feeds: { ...m.feeds, [feedId]: { ...m.feeds[feedId], ignore: Object.keys(cur).length ? cur : undefined, notes: [note, ...(m.feeds[feedId]?.notes ?? [])].slice(0, 8) } } }
+  })
+}
+
 export const FINE_HOURS = 6
 export const stillFine = (at: string | undefined) => !!at && Date.now() - Date.parse(at) < FINE_HOURS * 3600e3
 export async function markFine(feed: Feed, issues: Issue[]) {
@@ -231,7 +250,8 @@ export async function patrol(feeds: Feed[]): Promise<Round> {
       const ts = page.entries.map((e) => Date.parse(e.published_at)).filter((t) => !Number.isNaN(t))
       gaps = ts.slice(1).map((t, i) => (ts[i] - t) / 864e5)
       // 视频、播客：正文本来就是简介，不算「像是摘要」（0.27）
-      const media = page.entries.filter((e) => /youtube\.com\/watch|youtu\.be\//.test(e.url) || (e.enclosures ?? []).some((x) => /^(audio|video)\//.test(x.mime_type))).length
+      // 带音视频附件、正文又短的才算（澎湃每篇长文都附朗读音频，不能当播客，2026-10-27；同 server/scribe/src/patrol.js）
+      const media = page.entries.filter((e) => /youtube\.com\/watch|youtu\.be\//.test(e.url) || ((e.enclosures ?? []).some((x) => /^(audio|video)\//.test(x.mime_type)) && textLen(e.content) < 1500)).length
       if (page.entries.length >= 3 && media < page.entries.length / 2) {
         avgChars = Math.round(page.entries.reduce((a, e) => a + textLen(e.content), 0) / page.entries.length)
         if (avgChars < 300) issues.push({ kind: 'summary', text: feed.crawler ? '开着抓取全文，正文还是很短' : `像是摘要（平均 ${avgChars} 字）`, crawler: !!feed.crawler })
@@ -249,9 +269,10 @@ export async function patrol(feeds: Feed[]): Promise<Round> {
       const total = await api.feedEntries(feed.id, { limit: 1, published_after: Math.floor((Date.now() - 30 * 864e5) / 1000) }).then((r) => r.total).catch(() => 0)
       if (total && muted / total >= 0.4) issues.push({ kind: 'muted', text: `近 30 天划掉了 ${Math.round((muted / total) * 10)} 成（${muted} 篇）` })
     }
-    // 6 小时内点过「它没事」的，先不提
-    const fine = currentMeta().feeds[feed.id]?.fine ?? {}
-    return { feed, issues: issues.filter((i) => !stillFine(fine[i.kind])), latest, avgChars }
+    // 6 小时内点过「它没事」的、AI 判定忽略的，先不提
+    const m = currentMeta()
+    const fine = m.feeds[feed.id]?.fine ?? {}
+    return { feed, issues: issues.filter((i) => !stillFine(fine[i.kind]) && !ignoreRule(m, feed.id, i)), latest, avgChars }
   })
   lastRound = { at: Date.now(), wards, total: feeds.length }
   return lastRound

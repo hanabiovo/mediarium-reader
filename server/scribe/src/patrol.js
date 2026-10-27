@@ -21,7 +21,19 @@ export function staleAfter(gaps) {
   const g = [...gaps].sort((a, b) => a - b)[Math.floor(gaps.length / 2)]
   return Math.max(STALE_DAYS, Math.ceil(g * 3))
 }
-const isMedia = (e) => /youtube\.com\/watch|youtu\.be\//.test(e.url ?? '') || (e.enclosures ?? []).some((x) => /^(audio|video)\//.test(x.mime_type ?? ''))
+// 视频、播客：YouTube，或带音视频附件、正文又短的（澎湃每篇长文都附朗读音频，不能当播客，2026-10-27）
+const MEDIA_TEXT = 1500
+const isMedia = (e) => /youtube\.com\/watch|youtu\.be\//.test(e.url ?? '') || ((e.enclosures ?? []).some((x) => /^(audio|video)\//.test(x.mime_type ?? '')) && textLen(e.content) < MEDIA_TEXT)
+
+// AI 判定的忽略规则（MCP 的 triage_source 写，网页端源医生同样遵守、能撤销）：
+//   feeds[id].ignore[种类] = { why, at, until, match? }。match 只对报错有用：报错原文里含这段字才忽略（只忽略超时，404 照样报）
+export const IGNORABLE = ['error', 'stale', 'summary', 'muted']
+export function ignoreRule(meta, feedId, issue) {
+  const r = meta.feeds?.[feedId]?.ignore?.[issue.kind]
+  if (!r || (r.until && Date.parse(r.until) < Date.now())) return null
+  if (r.match && issue.kind === 'error' && !String(issue.detail ?? '').toLowerCase().includes(String(r.match).toLowerCase())) return null
+  return r
+}
 const entriesOf = (key, feedId, q) => mf(key, `/feeds/${feedId}/entries?${new URLSearchParams({ order: 'published_at', direction: 'desc', status: 'unread', ...q }).toString()}&status=read`)
 
 async function pool(items, n, f) {
@@ -75,15 +87,24 @@ export async function examineFeed(key, feed, meta) {
     }
   }
   const fine = meta.feeds?.[feed.id]?.fine ?? {}
-  const quiet = (k) => fine[k] && Date.now() - Date.parse(fine[k]) < FINE_HOURS * 3600e3
+  const quietFine = (k) => (fine[k] && Date.now() - Date.parse(fine[k]) < FINE_HOURS * 3600e3 ? fine[k] : null)
   facts.notes = meta.feeds?.[feed.id]?.notes ?? []
-  return { facts, issues: issues.filter((i) => !quiet(i.kind)) }
+  // 藏起来的也记一份（给 MCP 看，免得 AI 以为数据对不上）：用户点了「它没事」6 小时内的、AI 判定忽略的
+  const shown = [], quiet = []
+  for (const i of issues) {
+    const rule = ignoreRule(meta, feed.id, i)
+    const f = quietFine(i.kind)
+    if (rule) quiet.push({ ...i, why: 'ignore', rule })
+    else if (f) quiet.push({ ...i, why: 'fine', at: f })
+    else shown.push(i)
+  }
+  return { facts, issues: shown, quiet }
 }
 
 export async function patrolUser(key) {
   const [feeds, me] = await Promise.all([mf(key, '/feeds'), mf(key, '/me')])
   const meta = parseMeta(me?.stylesheet)
-  const wards = await pool(feeds ?? [], 4, (f) => examineFeed(key, f, meta).catch((e) => ({ facts: { id: f.id, title: f.title, entriesError: e.message }, issues: [] })))
+  const wards = await pool(feeds ?? [], 4, (f) => examineFeed(key, f, meta).catch((e) => ({ facts: { id: f.id, title: f.title, entriesError: e.message }, issues: [], quiet: [] })))
   return { uid: me.id, at: new Date().toISOString(), total: feeds?.length ?? 0, wards }
 }
 
