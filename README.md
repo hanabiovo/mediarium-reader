@@ -10,6 +10,17 @@
 
 > 世界每天发生很多事。你决定看什么，也决定略过什么。
 
+<p align="center">
+  <img src="docs/screenshots/01-shelf.jpg" width="30%" alt="报刊架：按类别陈列的信源">
+  <img src="docs/screenshots/05-magazine.jpg" width="30%" alt="杂志目录：一本刊物当天的文章">
+  <img src="docs/screenshots/03-article.jpg" width="30%" alt="文章页：带大图的正文">
+</p>
+<p align="center">
+  <img src="docs/screenshots/02-stream.jpg" width="30%" alt="信息流：所有文章按时间排列">
+  <img src="docs/screenshots/04-article-dark.jpg" width="30%" alt="深色模式下的中文长文">
+</p>
+<p align="center"><sub>报刊架 · 杂志目录 · 文章页 · 信息流 · 深色模式（演示账号，订的都是公开信源）</sub></p>
+
 ## 从找到信源开始
 
 RSS 本来是一种开放、自由的订阅方式，却不应该要求每位读者都懂得寻找订阅地址、配置路由或排查服务器故障。灵媒试着把这些麻烦留给后台。
