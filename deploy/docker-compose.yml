@@ -44,6 +44,8 @@ services:
       LISTEN_ADDR: 0.0.0.0:8080
       # 出错不停：源连续出错也继续按时重试（Miniflux 默认连错 3 次就停掉，要手动重抓）
       POLLING_PARSING_ERROR_LIMIT: "0"
+      # 同时抓取的源数（Miniflux 默认 16）。小内存机器上一起打 RSSHub 会超时，调低让它排队
+      WORKER_POOL_SIZE: "4"
       # 图片一律经服务器转发，只在打开文章时按需拉取
       MEDIA_PROXY_MODE: all
       # 可选：勾了「通过代理抓取」的源走这个代理（被对方拦机房 IP 时用）
