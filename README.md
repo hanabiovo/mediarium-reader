@@ -138,7 +138,9 @@ plugin.json     阅读技能的插件入口
 
 ## 致谢
 
-产品设计：Hana。代码由 Hana 和 Claude 一起完成。
+共创者：Hana、Claude、ChatGPT（小鸮）。
+
+产品设计：Hana。代码由 Hana 和 Claude 一起完成；信息整合技能及相关文档由 Hana 和 ChatGPT（小鸮）共创。
 
 建立在这些项目之上：[Miniflux](https://miniflux.app)、[RSSHub](https://docs.rsshub.app)、[Lucide](https://lucide.dev)，以及 Fontsource 上的各款开源字体。
 
