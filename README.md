@@ -102,6 +102,12 @@ RSS 本来是一种开放、自由的订阅方式，却不应该要求每位读�
 
 链接分只读和可管理订阅两档，只能碰自己的账号。传输方式是 Streamable HTTP，不需要 OAuth：添加时认证方式选「无」，链接本身就是钥匙。
 
+### 信息整合技能
+
+仓库附带 **[灵媒 · 信息整合](docs/SKILLS.md)**（`mediarium-synthesis`）：让 AI 串联指定时段的新闻进展、为积压未读建立阅读方向，或从收藏中整理有依据、可修正的兴趣档案。新闻复盘可以包含已读文章，其他分类也可以按问题和观点组织。
+
+技能需要使用者先连接自己的灵媒 MCP；只读权限即可。安装、插件入口和调用示例见 **[docs/SKILLS.md](docs/SKILLS.md)**，技能源码在 **[skills/mediarium-synthesis/](skills/mediarium-synthesis/)**。
+
 ## 部署与使用
 
 灵媒以 [Miniflux](https://miniflux.app/) 作为订阅管理后端，是一款可自行部署的 PWA 应用。支持桌面与移动浏览器，手机上可以添加到主屏幕使用。可以一个人使用，也支持管理员通过邀请链接邀请朋友注册。
@@ -117,6 +123,8 @@ web/            灵媒界面（Vite + React + TypeScript）
 server/scribe/  誊写服务（Node）：修补订阅源、翻译、图片中转、邀请注册
 deploy/         docker-compose、.env 示例、Nginx 配置
 docs/           部署说明
+skills/         信息整合等 AI 阅读技能
+plugin.json     阅读技能的插件入口
 ```
 
 本地开发前端：`cd web && npm ci && npm run dev`。开发时需要一个能访问的灵媒后端，`/miniflux/` 和 `/scribe/` 两个路径要能反代到它。

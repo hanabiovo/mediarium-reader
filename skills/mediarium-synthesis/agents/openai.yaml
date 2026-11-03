@@ -1,0 +1,7 @@
+interface:
+  display_name: "灵媒 · 信息整合"
+  short_description: "串联新闻进展、梳理积压未读，并从收藏中发现值得继续阅读的内容"
+  default_prompt: "使用 $mediarium-synthesis 复盘灵媒过去 48 小时的新闻，包含已读与未读，讲清主要脉络并挑选值得读的小事。"
+
+policy:
+  allow_implicit_invocation: true

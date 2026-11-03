@@ -1,0 +1,15 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "mediarium-synthesis",
+  "version": "0.1.0",
+  "description": "通过已连接的灵媒 MCP 复盘新闻脉络、梳理积压未读并整理收藏兴趣。",
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "灵媒 · 信息整合",
+        "shortDescription": "新闻复盘、未读导览与收藏兴趣梳理",
+        "category": "Productivity"
+      }
+    }
+  }
+}

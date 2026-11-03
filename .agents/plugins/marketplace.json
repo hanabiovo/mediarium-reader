@@ -1,0 +1,20 @@
+{
+  "name": "mediarium-skills",
+  "interface": {
+    "displayName": "灵媒 · 阅读技能"
+  },
+  "plugins": [
+    {
+      "name": "mediarium-synthesis",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
